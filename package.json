@@ -1,0 +1,43 @@
+{
+  "name": "loadstreaming",
+  "version": "1.4.0",
+  "description": "LoadStreaming - YouTube Video and Audio Downloader for Windows",
+  "main": "dist-electron/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "dist": "npm run build && electron-builder",
+    "download-bins": "node scripts/download-binaries.js"
+  },
+  "keywords": [
+    "youtube",
+    "downloader",
+    "mp4",
+    "mp3",
+    "windows",
+    "desktop"
+  ],
+  "author": "LoadStreaming Team",
+  "license": "MIT",
+  "dependencies": {
+    "lucide-react": "^1.16.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.9",
+    "@types/node": "^22.13.9",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "cross-env": "^7.0.3",
+    "electron": "^35.0.0",
+    "electron-builder": "^25.1.8",
+    "tailwindcss": "^4.0.9",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6"
+  }
+}

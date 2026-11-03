@@ -1,0 +1,50 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.loadstreaming.app",
+  "productName": "LoadStreaming",
+  "directories": {
+    "output": "release"
+  },
+  "artifactName": "LoadStreaming Setup.${ext}",
+  "files": [
+    "dist/**/*",
+    "dist-electron/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "resources/bin",
+      "to": "bin",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "build/icon.png",
+      "to": "icon.png"
+    }
+  ],
+  "win": {
+    "icon": "build/icon.ico",
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "requestedExecutionLevel": "asInvoker"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": false,
+    "createStartMenuShortcut": true,
+    "include": "build/installer.nsh",
+    "installerIcon": "build/icon.ico",
+    "uninstallerIcon": "build/icon.ico",
+    "installerSidebar": "build/installerSidebar.bmp",
+    "uninstallerSidebar": "build/installerSidebar.bmp",
+    "installerHeader": "build/installerHeader.bmp",
+    "shortcutName": "LoadStreaming",
+    "uninstallDisplayName": "LoadStreaming",
+    "deleteAppDataOnUninstall": false,
+    "runAfterFinish": true
+  }
+}

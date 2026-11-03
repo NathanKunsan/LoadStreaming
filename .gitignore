@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build and Packaging outputs
+dist/
+dist-electron/
+release/
+*.log
+
+# Heavy external binaries (downloaded via npm run download-bins)
+resources/bin/*.exe
+resources/bin/*.zip
+resources/bin/*.tar.gz
+
+# Compiled updater binaries & setup
+*.exe
+!build/*.exe
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment and local configs
+.env
+.env.local
+default_download_dir.txt
