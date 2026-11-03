@@ -121,6 +121,13 @@ export const App: React.FC = () => {
         setMainSection(tab);
       });
 
+      // Automatic check for updates on startup
+      window.electronAPI.checkForUpdates().then((info) => {
+        if (info && info.hasUpdate) {
+          setUpdateInfo(info);
+        }
+      }).catch(() => {});
+
       return () => {
         unsubJob();
         unsubHist();
