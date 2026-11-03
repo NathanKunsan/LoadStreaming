@@ -24,7 +24,26 @@ InstallDir "C:\LoadStreamingProgram"
 
 !macro customInit
   !ifndef BUILD_UNINSTALLER
-    StrCpy $INSTDIR "C:\LoadStreamingProgram"
+    ; Read previous installation directory from registry if available
+    SetRegView 64
+    ReadRegStr $0 HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation
+    ${If} $0 == ""
+      ReadRegStr $0 HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation
+    ${EndIf}
+    ${If} $0 == ""
+      SetRegView 32
+      ReadRegStr $0 HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation
+      ${If} $0 == ""
+        ReadRegStr $0 HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation
+      ${EndIf}
+    ${EndIf}
+
+    ${If} $0 != ""
+    ${AndIf} ${FileExists} "$0\LoadStreaming.exe"
+      StrCpy $INSTDIR $0
+    ${Else}
+      StrCpy $INSTDIR "C:\LoadStreamingProgram"
+    ${EndIf}
   !endif
 !macroend
 
@@ -86,6 +105,11 @@ FunctionEnd
 Function DownloadLocationPageCreate
   Call SanitizeInstallDir
 
+  ; If this is an upgrade/re-install (LoadStreaming.exe exists in INSTDIR), skip this page completely
+  ${If} ${FileExists} "$INSTDIR\LoadStreaming.exe"
+    Abort
+  ${EndIf}
+
   nsDialogs::Create 1018
   Pop $DownloadLocationPage
   ${If} $DownloadLocationPage == error
@@ -145,6 +169,11 @@ Function DownloadLocationPageLeave
 FunctionEnd
 
 Function ShortcutPageCreate
+  ; If this is an upgrade/re-install, skip shortcut configuration page
+  ${If} ${FileExists} "$INSTDIR\LoadStreaming.exe"
+    Abort
+  ${EndIf}
+
   nsDialogs::Create 1018
   Pop $0
   ${If} $0 == error
@@ -168,21 +197,28 @@ FunctionEnd
 !macro customInstall
   Call SanitizeInstallDir
 
+  ; Only create or delete desktop shortcut if explicitly set on fresh install
   ${If} $CreateDesktopShortcutState == ${BST_CHECKED}
     CreateShortCut "$DESKTOP\LoadStreaming.lnk" "$INSTDIR\LoadStreaming.exe" "" "$INSTDIR\LoadStreaming.exe" 0
-  ${Else}
+  ${ElseIf} $CreateDesktopShortcutState == ${BST_UNCHECKED}
     Delete "$DESKTOP\LoadStreaming.lnk"
+  ${Else}
+    ; Upgrade mode: preserve or refresh existing desktop shortcut if it exists
+    ${If} ${FileExists} "$DESKTOP\LoadStreaming.lnk"
+      CreateShortCut "$DESKTOP\LoadStreaming.lnk" "$INSTDIR\LoadStreaming.exe" "" "$INSTDIR\LoadStreaming.exe" 0
+    ${EndIf}
   ${EndIf}
 
-  ; Create default video, audio, and converted directories
-  CreateDirectory "$DownloadLocationPath\Video"
-  CreateDirectory "$DownloadLocationPath\Audio"
-  CreateDirectory "$DownloadLocationPath\Converted"
+  ; Only initialize default directories and default_download_dir.txt on fresh install
+  ${If} $DownloadLocationPath != ""
+    CreateDirectory "$DownloadLocationPath\Video"
+    CreateDirectory "$DownloadLocationPath\Audio"
+    CreateDirectory "$DownloadLocationPath\Converted"
 
-  ; Save default download directory to installation folder
-  FileOpen $0 "$INSTDIR\default_download_dir.txt" w
-  FileWrite $0 "$DownloadLocationPath"
-  FileClose $0
+    FileOpen $0 "$INSTDIR\default_download_dir.txt" w
+    FileWrite $0 "$DownloadLocationPath"
+    FileClose $0
+  ${EndIf}
 !macroend
 !endif
 

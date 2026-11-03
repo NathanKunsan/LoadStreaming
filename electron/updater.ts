@@ -1,6 +1,7 @@
 import https from 'https';
 import fs from 'fs';
 import path from 'path';
+import { spawn } from 'child_process';
 import { app, shell } from 'electron';
 import { UpdateInfo } from './types';
 
@@ -108,13 +109,36 @@ export class UpdateManager {
     });
   }
 
+  private runSilentInstallerAndQuit(installerPath: string): void {
+    try {
+      // Execute the NSIS installer in silent mode (/S)
+      // This performs an in-place upgrade without opening the full setup wizard
+      const child = spawn(installerPath, ['/S'], {
+        detached: true,
+        stdio: 'ignore'
+      });
+      child.unref();
+
+      // Gracefully exit so file locks on app binaries are released
+      setTimeout(() => {
+        app.quit();
+      }, 500);
+    } catch (err) {
+      console.warn('[Updater] Silent upgrade spawn failed, falling back to openPath:', err);
+      shell.openPath(installerPath);
+      setTimeout(() => {
+        app.quit();
+      }, 800);
+    }
+  }
+
   public async downloadAndApplyUpdate(
     downloadUrl: string,
     onProgress: (percent: number) => void
   ): Promise<boolean> {
     if (!downloadUrl) return false;
 
-    // If local file path exists, copy and run silent install immediately
+    // If local file path exists, copy and run silent upgrade immediately
     if (fs.existsSync(downloadUrl)) {
       onProgress(30);
       try {
@@ -122,14 +146,11 @@ export class UpdateManager {
         onProgress(80);
         setTimeout(() => {
           onProgress(100);
-          shell.openPath(this.tempInstallerPath);
-          setTimeout(() => {
-            app.quit();
-          }, 800);
+          this.runSilentInstallerAndQuit(this.tempInstallerPath);
         }, 400);
         return true;
       } catch (err) {
-        shell.openPath(downloadUrl);
+        this.runSilentInstallerAndQuit(downloadUrl);
         return true;
       }
     }
@@ -165,17 +186,9 @@ export class UpdateManager {
 
             file.on('finish', () => {
               file.close(() => {
-                // Execute installer and quit current app cleanly
-                try {
-                  shell.openPath(this.tempInstallerPath);
-                  setTimeout(() => {
-                    app.quit();
-                  }, 800);
-                  resolve(true);
-                } catch (err) {
-                  shell.openPath(this.tempInstallerPath);
-                  resolve(true);
-                }
+                onProgress(100);
+                this.runSilentInstallerAndQuit(this.tempInstallerPath);
+                resolve(true);
               });
             });
           }).on('error', (err) => {

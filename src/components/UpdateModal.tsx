@@ -78,6 +78,33 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
 
           {/* Changelog Scrollable Container (Pure Thai / Pure English) */}
           <div className="max-h-56 overflow-y-auto p-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-xs space-y-3 font-sans select-text">
+            {/* Version 1.5.4 */}
+            <div>
+              <div className="flex items-center justify-between font-bold text-[var(--color-accent)] pb-0.5 border-b border-[var(--color-border)]/50">
+                <span>{language === 'th' ? 'เวอร์ชัน 1.5.4' : 'Version 1.5.4'}</span>
+                {renderVersionBadge('1.5.4')}
+              </div>
+              <ul className="list-disc list-inside text-[var(--color-text-muted)] space-y-0.5 pt-1 text-[11px]">
+                {language === 'th' ? (
+                  <>
+                    <li>ปรับปรุงระบบอัปเดตแบบไร้รอยต่อ อัปเกรดแทนที่ไฟล์ในเครื่องอัตโนมัติในพื้นหลังโดยไม่เปิดหน้าต่างติดตั้งใหม่ยกชุด</li>
+                    <li>รักษาค่าโฟลเดอร์จัดเก็บข้อมูลและคีย์ลัดเดิมไว้ครบถ้วน ไม่ต้องตั้งค่าใหม่หลังการอัปเดต</li>
+                    <li>แก้ไขข้อจำกัดความละเอียด 360p ปลดล็อกการดึงข้อมูล 4K, 2K, 1080p และ 720p ของ YouTube ได้ครบทุกระดับ</li>
+                    <li>เพิ่มปุ่มและคีย์ลัด R บนวงล้อคีย์ลัด สำหรับสลับความละเอียดวิดีโอด่วนได้ใน 0ms</li>
+                    <li>เพิ่มปุ่มเลือกความละเอียด 4K, 2K, 1080p, 720p และคีย์เวิร์ดสั่งงานด่วนบนบอท Discord</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Seamless in-place updater upgrade: update installs directly in the background without launching the setup wizard.</li>
+                    <li>Preserved destination folders and user configurations across updates without setup prompts.</li>
+                    <li>Resolved YouTube 360p limitation, unlocking 4K, 2K, 1080p, and 720p stream formats.</li>
+                    <li>Quick resolution toggle badge in Radial Menu with R key shortcut.</li>
+                    <li>Interactive resolution selection buttons and chat quality triggers in Discord Remote Bot.</li>
+                  </>
+                )}
+              </ul>
+            </div>
+
             {/* Version 1.5.3 */}
             <div>
               <div className="flex items-center justify-between font-bold text-[var(--color-accent)] pb-0.5 border-b border-[var(--color-border)]/50">
