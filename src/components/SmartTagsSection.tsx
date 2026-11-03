@@ -122,7 +122,7 @@ export const SmartTagsSection: React.FC<SmartTagsSectionProps> = ({
   };
 
   return (
-    <div className="pt-2 border-t border-[var(--color-border)]/50 space-y-2">
+    <div className="p-3 my-2.5 bg-[var(--color-bg)]/40 border-2 border-[var(--color-border)]/60 rounded-lg space-y-2.5">
       <div className="flex items-center justify-between text-xs">
         <label className="font-bold opacity-90 flex items-center space-x-1.5 text-[var(--color-text-main)]">
           <Tag className="w-3.5 h-3.5 text-[var(--color-accent)]" />

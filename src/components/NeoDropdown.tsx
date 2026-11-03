@@ -22,6 +22,8 @@ export interface NeoDropdownProps<T = string> {
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
   maxHeight?: string;
+  align?: 'left' | 'right';
+  openUpward?: boolean;
 }
 
 export function NeoDropdown<T extends string | number>({
@@ -36,11 +38,26 @@ export function NeoDropdown<T extends string | number>({
   size = 'sm',
   fullWidth = true,
   maxHeight = 'max-h-60',
+  align = 'left',
+  openUpward,
 }: NeoDropdownProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
+  const [shouldOpenUpward, setShouldOpenUpward] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find((opt) => opt.value === value);
+
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      if (openUpward !== undefined) {
+        setShouldOpenUpward(openUpward);
+      } else {
+        const rect = containerRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        setShouldOpenUpward(spaceBelow < 220);
+      }
+    }
+  }, [isOpen, openUpward]);
 
   // Close on outside click
   useEffect(() => {
@@ -119,7 +136,9 @@ export function NeoDropdown<T extends string | number>({
       {/* Floating Menu */}
       {isOpen && (
         <div
-          className={`absolute left-0 z-50 mt-1 ${maxHeight} overflow-y-auto bg-[var(--color-surface)] border-2 border-[var(--color-border)] rounded p-1 shadow-2xl animate-in fade-in duration-100 ${dropdownClassName}`}
+          className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} z-50 ${
+            shouldOpenUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+          } ${maxHeight} overflow-y-auto bg-[var(--color-surface)] border-2 border-[var(--color-border)] rounded-md p-1 shadow-2xl animate-in fade-in duration-100 ${dropdownClassName}`}
           style={{ minWidth: '100%', width: 'max-content', maxWidth: 'min(460px, 92vw)' }}
         >
           {options.length === 0 ? (

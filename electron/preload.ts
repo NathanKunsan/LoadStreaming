@@ -79,8 +79,8 @@ export const electronAPI = {
     ipcRenderer.on('update-progress', subscription);
     return () => { ipcRenderer.removeListener('update-progress', subscription); };
   },
-  onShowToast: (callback: (data: { url: string }) => void) => {
-    const subscription = (_: any, data: { url: string }) => callback(data);
+  onShowToast: (callback: (data: { url?: string; message?: string; type?: 'info' | 'warning' }) => void) => {
+    const subscription = (_: any, data: { url?: string; message?: string; type?: 'info' | 'warning' }) => callback(data);
     ipcRenderer.on('show-toast', subscription);
     return () => { ipcRenderer.removeListener('show-toast', subscription); };
   },
@@ -94,8 +94,8 @@ export const electronAPI = {
     ipcRenderer.on('inspect-url', subscription);
     return () => { ipcRenderer.removeListener('inspect-url', subscription); };
   },
-  onSwitchTab: (callback: (tab: 'download' | 'convert') => void) => {
-    const subscription = (_: any, tab: 'download' | 'convert') => callback(tab);
+  onSwitchTab: (callback: (tab: 'download' | 'convert' | 'settings') => void) => {
+    const subscription = (_: any, tab: 'download' | 'convert' | 'settings') => callback(tab);
     ipcRenderer.on('switch-tab', subscription);
     return () => { ipcRenderer.removeListener('switch-tab', subscription); };
   },

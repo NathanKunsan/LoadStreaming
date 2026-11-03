@@ -51,6 +51,7 @@ export const DesktopRadialMenu: React.FC<DesktopRadialMenuProps> = () => {
   const [activeSlice, setActiveSlice] = useState<SliceDirection | null>(null);
   const [mouseAngle, setMouseAngle] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hasExecutedRef = useRef(false);
 
   const cx = 180;
   const cy = 180;
@@ -68,6 +69,7 @@ export const DesktopRadialMenu: React.FC<DesktopRadialMenuProps> = () => {
       });
 
       const unsub = window.electronAPI.onOpenRadial?.((data) => {
+        hasExecutedRef.current = false;
         if (data && data.config) {
           setConfig(data.config);
         }
@@ -131,6 +133,9 @@ export const DesktopRadialMenu: React.FC<DesktopRadialMenuProps> = () => {
   };
 
   const handleExecute = (direction: SliceDirection) => {
+    if (hasExecutedRef.current) return;
+    hasExecutedRef.current = true;
+
     let act = actionNorth;
     if (direction === 'east') act = actionEast;
     if (direction === 'south') act = actionSouth;
@@ -141,13 +146,21 @@ export const DesktopRadialMenu: React.FC<DesktopRadialMenuProps> = () => {
     }
   };
 
-  const handleClick = () => {
+  const handleClick = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (activeSlice) {
       handleExecute(activeSlice);
     } else {
       if (window.electronAPI) {
         window.electronAPI.closeRadialMenu();
       }
+    }
+  };
+
+  const handleMouseUp = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (activeSlice) {
+      handleExecute(activeSlice);
     }
   };
 
@@ -223,6 +236,7 @@ export const DesktopRadialMenu: React.FC<DesktopRadialMenuProps> = () => {
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onClick={handleClick}
+      onMouseUp={handleMouseUp}
       className={`theme-${config.theme} w-[360px] h-[360px] select-none flex items-center justify-center relative cursor-pointer overflow-hidden bg-transparent`}
     >
       <svg
@@ -255,6 +269,14 @@ export const DesktopRadialMenu: React.FC<DesktopRadialMenuProps> = () => {
               stroke="var(--color-border)"
               strokeWidth={isActive ? '3' : '2'}
               className="transition-all duration-150 ease-out cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleExecute(slice.dir);
+              }}
+              onMouseUp={(e) => {
+                e.stopPropagation();
+                handleExecute(slice.dir);
+              }}
               style={{
                 filter: isActive ? 'drop-shadow(0 0 8px var(--color-accent))' : undefined
               }}

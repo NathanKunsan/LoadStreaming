@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage, clipboard, globalShortcut, session, screen } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import { execFile } from 'child_process';
 import { DownloadEngine } from './downloader';
 import { ConversionEngine } from './converter';
 import { StorageManager } from './storage';
@@ -489,6 +490,33 @@ ipcMain.handle('get-clipboard-text', () => {
 });
 
 let currentRegisteredShortcut = '';
+let capturedBrowserUrl = '';
+
+function getBrowserUrlExePath(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'bin', 'GetBrowserUrl.exe');
+  }
+  return path.join(__dirname, '..', 'resources', 'bin', 'GetBrowserUrl.exe');
+}
+
+function captureActiveBrowserUrl(): Promise<string> {
+  return new Promise((resolve) => {
+    const exePath = getBrowserUrlExePath();
+    if (!fs.existsSync(exePath)) {
+      resolve('');
+      return;
+    }
+    execFile(exePath, [], { timeout: 1500 }, (error, stdout) => {
+      if (error || !stdout) {
+        resolve('');
+      } else {
+        const url = stdout.trim();
+        resolve(downloader.isPotentialVideoUrl(url) ? url : '');
+      }
+    });
+  });
+}
+
 function registerRadialShortcut(shortcut: string) {
   if (currentRegisteredShortcut) {
     try {
@@ -497,9 +525,15 @@ function registerRadialShortcut(shortcut: string) {
   }
   try {
     const keyToRegister = shortcut || 'Alt+Q';
-    const ok = globalShortcut.register(keyToRegister, () => {
+    const ok = globalShortcut.register(keyToRegister, async () => {
       const cfg = storage.getConfig();
       if (cfg.enableRadialMenu === false) return;
+
+      // Capture browser URL under mouse/active window before radial steals focus!
+      captureActiveBrowserUrl().then((url) => {
+        if (url) capturedBrowserUrl = url;
+      });
+
       if (!radialWindow || radialWindow.isDestroyed()) {
         createRadialWindow();
       }
@@ -565,22 +599,55 @@ ipcMain.handle('toast-dismiss', () => {
   toastWindow?.hide();
 });
 
+function showDesktopToastMessage(message: string, type: 'info' | 'warning' = 'info') {
+  try {
+    if (!toastWindow || toastWindow.isDestroyed()) {
+      createToastWindow();
+    }
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width, height } = primaryDisplay.workAreaSize;
+    toastWindow?.setPosition(width - 435, height - 120);
+    toastWindow?.webContents.send('show-toast', { message, type });
+    toastWindow?.showInactive();
+    toastWindow?.setAlwaysOnTop(true, 'screen-saver');
+
+    setTimeout(() => {
+      try {
+        toastWindow?.hide();
+      } catch {}
+    }, 3500);
+  } catch {}
+}
+
 // Desktop Radial Menu Action Handler
 ipcMain.handle('execute-radial-action', async (_, actionKey: string) => {
   radialWindow?.hide();
   const cfg = storage.getConfig();
+  const isEn = cfg.language === 'en';
+
   switch (actionKey) {
     case 'actDownloadVideo': {
-      const clip = clipboard.readText().trim();
-      if (downloader.isPotentialVideoUrl(clip)) {
-        try {
-          const info = await downloader.getVideoInfo(clip);
+      let targetUrl = clipboard.readText().trim();
+      if (!downloader.isPotentialVideoUrl(targetUrl)) {
+        if (capturedBrowserUrl && downloader.isPotentialVideoUrl(capturedBrowserUrl)) {
+          targetUrl = capturedBrowserUrl;
+        } else {
+          targetUrl = await captureActiveBrowserUrl();
+        }
+      }
+
+      if (downloader.isPotentialVideoUrl(targetUrl)) {
+        showDesktopToastMessage(
+          isEn ? 'Starting video download in background...' : 'กำลังเริ่มดาวน์โหลดวิดีโอในพื้นหลัง...',
+          'info'
+        );
+        downloader.getVideoInfo(targetUrl).then((info) => {
           const res = info.resolutions && info.resolutions.length > 0
             ? (info.resolutions.find(r => r.height === 1080)?.label || info.resolutions[info.resolutions.length - 1].label)
             : '1080p';
           const job: DownloadJob = {
             id: `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-            url: clip,
+            url: targetUrl,
             title: info.title,
             thumbnail: info.thumbnail,
             mediaType: 'video',
@@ -595,25 +662,39 @@ ipcMain.handle('execute-radial-action', async (_, actionKey: string) => {
             createdAt: Date.now()
           };
           downloader.addJob(job);
-        } catch {
-          mainWindow?.show();
-          mainWindow?.focus();
-          mainWindow?.webContents.send('inspect-url', clip);
-        }
+        }).catch(() => {
+          showDesktopToastMessage(
+            isEn ? 'Failed to fetch video information. Please check URL.' : 'ไม่สามารถดึงข้อมูลวิดีโอได้ กรุณาตรวจสอบลิงก์',
+            'warning'
+          );
+        });
       } else {
-        mainWindow?.show();
-        mainWindow?.focus();
+        showDesktopToastMessage(
+          isEn ? 'No video link found in clipboard or browser.' : 'ไม่พบลิงก์วิดีโอจากหน้าจอหรือคลิปบอร์ด',
+          'warning'
+        );
       }
       break;
     }
     case 'actDownloadAudio': {
-      const clip = clipboard.readText().trim();
-      if (downloader.isPotentialVideoUrl(clip)) {
-        try {
-          const info = await downloader.getVideoInfo(clip);
+      let targetUrl = clipboard.readText().trim();
+      if (!downloader.isPotentialVideoUrl(targetUrl)) {
+        if (capturedBrowserUrl && downloader.isPotentialVideoUrl(capturedBrowserUrl)) {
+          targetUrl = capturedBrowserUrl;
+        } else {
+          targetUrl = await captureActiveBrowserUrl();
+        }
+      }
+
+      if (downloader.isPotentialVideoUrl(targetUrl)) {
+        showDesktopToastMessage(
+          isEn ? 'Starting MP3 download in background...' : 'กำลังเริ่มดาวน์โหลดเสียง MP3 ในพื้นหลัง...',
+          'info'
+        );
+        downloader.getVideoInfo(targetUrl).then((info) => {
           const job: DownloadJob = {
             id: `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-            url: clip,
+            url: targetUrl,
             title: info.title,
             thumbnail: info.thumbnail,
             mediaType: 'audio',
@@ -627,14 +708,17 @@ ipcMain.handle('execute-radial-action', async (_, actionKey: string) => {
             createdAt: Date.now()
           };
           downloader.addJob(job);
-        } catch {
-          mainWindow?.show();
-          mainWindow?.focus();
-          mainWindow?.webContents.send('inspect-url', clip);
-        }
+        }).catch(() => {
+          showDesktopToastMessage(
+            isEn ? 'Failed to fetch audio information. Please check URL.' : 'ไม่สามารถดึงข้อมูลวิดีโอได้ กรุณาตรวจสอบลิงก์',
+            'warning'
+          );
+        });
       } else {
-        mainWindow?.show();
-        mainWindow?.focus();
+        showDesktopToastMessage(
+          isEn ? 'No video link found in clipboard or browser.' : 'ไม่พบลิงก์วิดีโอจากหน้าจอหรือคลิปบอร์ด',
+          'warning'
+        );
       }
       break;
     }

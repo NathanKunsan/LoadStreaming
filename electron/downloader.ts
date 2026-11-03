@@ -1,6 +1,6 @@
 import path from 'path';
 import fs from 'fs';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, exec, ChildProcess } from 'child_process';
 import { app, Notification, shell, BrowserWindow } from 'electron';
 import { DownloadJob, VideoInfo, VideoResolution, HistoryItem, MediaType, DuplicateCheckResult, PlaylistInfo, PlaylistItem, FetchMediaResult } from './types';
 
@@ -11,6 +11,7 @@ export class DownloadEngine {
   private activeJobs: Map<string, { process: ChildProcess; job: DownloadJob }> = new Map();
   private queue: DownloadJob[] = [];
   private maxConcurrent: number = 2;
+  private videoInfoCache: Map<string, { info: VideoInfo; timestamp: number }> = new Map();
   private mainWindow?: BrowserWindow;
   private onJobUpdateCallback?: (job: DownloadJob) => void;
   private onHistoryUpdateCallback?: (item: HistoryItem) => void;
@@ -290,17 +291,28 @@ export class DownloadEngine {
   }
 
   public async getVideoInfo(url: string): Promise<VideoInfo> {
-    const validation = this.validateUrl(url);
+    const trimmedUrl = url.trim();
+    const validation = this.validateUrl(trimmedUrl);
     if (!validation.valid) {
       throw new Error(validation.error);
+    }
+
+    const cached = this.videoInfoCache.get(trimmedUrl);
+    if (cached && Date.now() - cached.timestamp < 10 * 60 * 1000) {
+      return cached.info;
     }
 
     return new Promise((resolve, reject) => {
       const args = [
         '--dump-json',
         '--no-playlist',
+        '--skip-download',
+        '--no-check-formats',
+        '--no-warnings',
+        '--socket-timeout', '6',
+        '--extractor-args', 'youtube:player_client=android,web;player_skip=configs,webpage,hls',
         '--ffmpeg-location', this.ffmpegPath,
-        url.trim()
+        trimmedUrl
       ];
 
       const child = spawn(this.ytdlpPath, args, { windowsHide: true });
@@ -344,14 +356,17 @@ export class DownloadEngine {
             sortedResolutions.push({ height: 720, label: '720p', formatId: 'best' });
           }
 
-          resolve({
-            url: url.trim(),
+          const result: VideoInfo = {
+            url: trimmedUrl,
             title: info.title || 'Unknown Title',
             thumbnail: info.thumbnail || '',
             duration: info.duration || 0,
             channel: info.uploader || info.channel || '',
             resolutions: sortedResolutions
-          });
+          };
+
+          this.videoInfoCache.set(trimmedUrl, { info: result, timestamp: Date.now() });
+          resolve(result);
         } catch (e: any) {
           reject(new Error(`Failed to parse video metadata: ${e.message}`));
         }
@@ -364,6 +379,15 @@ export class DownloadEngine {
   }
 
   public addJob(job: DownloadJob) {
+    // Prevent adding duplicate job if same URL is already Downloading or Waiting
+    const duplicateRunning = this.queue.find(
+      j => j.url === job.url && (j.status === 'Downloading' || j.status === 'Waiting')
+    );
+    if (duplicateRunning) {
+      console.log('Job with same URL is already running or queued:', job.url);
+      return;
+    }
+
     const existingIndex = this.queue.findIndex(j => j.id === job.id);
     if (existingIndex === -1) {
       this.queue.unshift(job);
@@ -378,15 +402,21 @@ export class DownloadEngine {
   public pauseJob(jobId: string) {
     const active = this.activeJobs.get(jobId);
     if (active) {
-      try {
-        active.process.kill('SIGTERM');
-      } catch (err) {
-        console.error('Error pausing job:', err);
-      }
       active.job.status = 'Paused';
       active.job.downloadSpeedStr = '0 KB/s';
       active.job.etaStr = '--';
       this.activeJobs.delete(jobId);
+
+      try {
+        if (process.platform === 'win32' && active.process.pid) {
+          exec(`taskkill /pid ${active.process.pid} /T /F`, () => {});
+        } else {
+          active.process.kill('SIGTERM');
+        }
+      } catch (err) {
+        console.error('Error pausing job:', err);
+      }
+
       this.emitUpdate(active.job);
       this.saveQueue();
       this.processQueue();
@@ -415,13 +445,29 @@ export class DownloadEngine {
   public cancelJob(jobId: string) {
     const active = this.activeJobs.get(jobId);
     if (active) {
+      active.job.status = 'Cancelled';
+      active.job.downloadSpeedStr = '0 KB/s';
+      active.job.etaStr = '--';
+      this.activeJobs.delete(jobId);
+
       try {
-        active.process.kill('SIGKILL');
+        if (process.platform === 'win32' && active.process.pid) {
+          exec(`taskkill /pid ${active.process.pid} /T /F`, () => {});
+        } else {
+          active.process.kill('SIGKILL');
+        }
       } catch (err) {
         console.error('Error killing job process:', err);
       }
-      active.job.status = 'Cancelled';
-      this.activeJobs.delete(jobId);
+
+      // Also cancel any other duplicate waiting jobs with the same URL so it doesn't restart
+      for (const other of this.queue) {
+        if (other.id !== active.job.id && other.url === active.job.url && other.status === 'Waiting') {
+          other.status = 'Cancelled';
+          this.emitUpdate(other);
+        }
+      }
+
       this.cleanupTempFiles(active.job);
       this.emitUpdate(active.job);
       this.saveQueue();
@@ -432,6 +478,16 @@ export class DownloadEngine {
     const queued = this.queue.find(j => j.id === jobId);
     if (queued) {
       queued.status = 'Cancelled';
+      queued.downloadSpeedStr = '0 KB/s';
+      queued.etaStr = '--';
+
+      for (const other of this.queue) {
+        if (other.id !== queued.id && other.url === queued.url && other.status === 'Waiting') {
+          other.status = 'Cancelled';
+          this.emitUpdate(other);
+        }
+      }
+
       this.cleanupTempFiles(queued);
       this.emitUpdate(queued);
       this.saveQueue();

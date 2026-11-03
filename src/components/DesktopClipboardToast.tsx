@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link2, Download, Search, X } from 'lucide-react';
+import { Link2, Download, Search, X, AlertCircle } from 'lucide-react';
 import { translations, Language } from '../locales/translations';
 import { AppConfig } from '../../electron/types';
 
@@ -10,6 +10,8 @@ export const DesktopClipboardToast: React.FC = () => {
     outputDir: ''
   });
   const [url, setUrl] = useState<string>('');
+  const [toastMessage, setToastMessage] = useState<string>('');
+  const [toastType, setToastType] = useState<'info' | 'warning'>('info');
 
   const language: Language = config.language || 'th';
   const t = translations[language];
@@ -23,6 +25,11 @@ export const DesktopClipboardToast: React.FC = () => {
       const unsub = window.electronAPI.onShowToast?.((data) => {
         if (data?.url) {
           setUrl(data.url);
+          setToastMessage('');
+        } else if (data?.message) {
+          setToastMessage(data.message);
+          setToastType(data.type || 'info');
+          setUrl('');
         }
       });
 
@@ -45,12 +52,39 @@ export const DesktopClipboardToast: React.FC = () => {
   };
 
   const handleDismiss = () => {
+    setUrl('');
+    setToastMessage('');
     if (window.electronAPI) {
       window.electronAPI.toastDismiss();
     }
   };
 
-  if (!url) return null;
+  if (!url && !toastMessage) return null;
+
+  if (toastMessage) {
+    return (
+      <div className={`theme-${config.theme} w-full h-full p-2 select-none flex items-center justify-center bg-transparent`}>
+        <div className="pencil-box w-full p-3 bg-[var(--color-surface)] border-2 border-[var(--color-accent)] text-[var(--color-text-main)] shadow-2xl flex items-center justify-between space-x-3 animate-in fade-in slide-in-from-bottom-2 duration-150">
+          <div className="flex items-center space-x-2.5 overflow-hidden">
+            {toastType === 'warning' ? (
+              <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+            ) : (
+              <Download className="w-4 h-4 text-[var(--color-accent)] shrink-0 animate-bounce" />
+            )}
+            <span className="text-xs font-bold leading-snug truncate">{toastMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleDismiss}
+            className="p-1 rounded text-[var(--color-text-muted)] hover:text-[var(--color-text-main)] transition-colors cursor-pointer shrink-0"
+            title={t.clipboardDismiss}
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`theme-${config.theme} w-full h-full p-2 select-none flex items-center justify-center bg-transparent`}>

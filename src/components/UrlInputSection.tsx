@@ -466,14 +466,16 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
             </label>
 
             {downloadSubtitle && (
-              <div className="flex items-center space-x-2 text-xs w-48">
+              <div className="flex items-center space-x-2 text-xs min-w-[260px]">
                 <span className="text-[var(--color-text-muted)] font-semibold shrink-0">{t.subLangLabel}:</span>
-                <div className="flex-1">
+                <div className="flex-1 min-w-[160px]">
                   <NeoDropdown
                     value={subLang}
                     onChange={(val) => setSubLang(val)}
                     options={subLangOptions}
                     size="sm"
+                    align="right"
+                    openUpward={true}
                   />
                 </div>
               </div>
