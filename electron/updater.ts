@@ -2,7 +2,6 @@ import https from 'https';
 import fs from 'fs';
 import path from 'path';
 import { app, shell } from 'electron';
-import { spawn } from 'child_process';
 import { UpdateInfo } from './types';
 
 export class UpdateManager {
@@ -123,13 +122,10 @@ export class UpdateManager {
         onProgress(80);
         setTimeout(() => {
           onProgress(100);
-          spawn(this.tempInstallerPath, ['/S'], {
-            detached: true,
-            stdio: 'ignore'
-          }).unref();
+          shell.openPath(this.tempInstallerPath);
           setTimeout(() => {
             app.quit();
-          }, 1000);
+          }, 800);
         }, 400);
         return true;
       } catch (err) {
@@ -169,15 +165,12 @@ export class UpdateManager {
 
             file.on('finish', () => {
               file.close(() => {
-                // Execute installer and quit current app
+                // Execute installer and quit current app cleanly
                 try {
-                  spawn(this.tempInstallerPath, ['/S'], {
-                    detached: true,
-                    stdio: 'ignore'
-                  }).unref();
+                  shell.openPath(this.tempInstallerPath);
                   setTimeout(() => {
                     app.quit();
-                  }, 1000);
+                  }, 800);
                   resolve(true);
                 } catch (err) {
                   shell.openPath(this.tempInstallerPath);
