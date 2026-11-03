@@ -55,7 +55,8 @@ export class StorageManager {
     this.config = {
       theme: 'yellow-black',
       language: 'th',
-      outputDir: defaultDownloads
+      outputDir: defaultDownloads,
+      discordWsUrl: 'wss://loadstreaming-bot.onrender.com'
     };
 
     this.load();
@@ -71,6 +72,9 @@ export class StorageManager {
           if (!parsed.outputDir.toLowerCase().endsWith('loadstreaming')) {
             parsed.outputDir = path.join(parsed.outputDir, 'LoadStreaming');
           }
+        }
+        if (parsed.discordWsUrl === 'ws://localhost:4040' || !parsed.discordWsUrl) {
+          parsed.discordWsUrl = 'wss://loadstreaming-bot.onrender.com';
         }
         this.config = { ...this.config, ...parsed };
       }

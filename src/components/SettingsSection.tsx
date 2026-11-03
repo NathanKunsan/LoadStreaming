@@ -36,7 +36,9 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
   const [westAct, setWestAct] = useState(config.radialActions?.west || 'actOpenConvert');
   const [enableRemote, setEnableRemote] = useState(config.enableDiscordRemote !== false);
   const [channelId, setChannelId] = useState(config.discordChannelId || '');
-  const [wsUrl, setWsUrl] = useState(config.discordWsUrl || 'ws://localhost:4040');
+  const wsUrl = config.discordWsUrl && config.discordWsUrl !== 'ws://localhost:4040'
+    ? config.discordWsUrl
+    : 'wss://loadstreaming-bot.onrender.com';
 
   const actionOptions: NeoDropdownOption<string>[] = [
     { value: 'actDownloadVideo', label: t.actDownloadVideo },
@@ -386,10 +388,10 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
               </label>
               <input
                 type="text"
-                value={wsUrl}
-                onChange={(e) => setWsUrl(e.target.value)}
-                placeholder={t.discordWsUrlPlaceholder}
-                className="w-full h-8 px-2.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text-main)] font-mono outline-hidden focus:border-[var(--color-accent)]"
+                value="wss://loadstreaming-bot.onrender.com"
+                readOnly
+                placeholder="wss://loadstreaming-bot.onrender.com"
+                className="w-full h-8 px-2.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text-muted)] font-mono outline-hidden cursor-not-allowed opacity-80"
               />
             </div>
           </div>

@@ -325,7 +325,16 @@ function setupDiscordRemote() {
     return;
   }
 
-  const wsUrl = config.discordWsUrl || 'ws://localhost:4040';
+  let rawUrl = (config.discordWsUrl || '').trim();
+  if (!rawUrl || rawUrl === 'ws://localhost:4040') {
+    rawUrl = 'wss://loadstreaming-bot.onrender.com';
+  }
+  let wsUrl = rawUrl;
+  if (wsUrl.startsWith('https://')) {
+    wsUrl = wsUrl.replace(/^https:\/\//i, 'wss://');
+  } else if (wsUrl.startsWith('http://')) {
+    wsUrl = wsUrl.replace(/^http:\/\//i, 'ws://');
+  }
   const channelId = config.discordChannelId.trim();
 
   try {
