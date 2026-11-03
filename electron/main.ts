@@ -403,7 +403,10 @@ function generateJobId(suffix?: string | number): string {
 async function handleIncomingBotJob(jobData: { id?: string; url: string; channelId?: string; isPlaylist?: boolean; mediaType?: 'video' | 'audio' }) {
   const cfg = storage.getConfig();
   const isEn = cfg.language === 'en';
-  const url = jobData.url;
+  let url = jobData.url;
+  if (!jobData.isPlaylist) {
+    url = url.replace(/[?&]list=[^&]+/i, '').replace(/[?&]index=[^&]+/i, '').replace(/[?&]start_radio=[^&]+/i, '').replace(/\?$/, '');
+  }
   const mediaType: 'video' | 'audio' = jobData.mediaType === 'audio' ? 'audio' : 'video';
   const targetDir = downloader.resolveDestinationDir(cfg.outputDir, mediaType);
 
