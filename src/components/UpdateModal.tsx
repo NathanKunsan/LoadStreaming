@@ -78,6 +78,33 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
 
           {/* Changelog Scrollable Container (Pure Thai / Pure English) */}
           <div className="max-h-56 overflow-y-auto p-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-xs space-y-3 font-sans select-text">
+            {/* Version 1.5.2 */}
+            <div>
+              <div className="flex items-center justify-between font-bold text-[var(--color-accent)] pb-0.5 border-b border-[var(--color-border)]/50">
+                <span>{language === 'th' ? 'เวอร์ชัน 1.5.2' : 'Version 1.5.2'}</span>
+                {renderVersionBadge('1.5.2')}
+              </div>
+              <ul className="list-disc list-inside text-[var(--color-text-muted)] space-y-0.5 pt-1 text-[11px]">
+                {language === 'th' ? (
+                  <>
+                    <li>ระบบแสดงเปอร์เซ็นต์ ความเร็ว ขนาดไฟล์ และเวลาที่เหลือแบบสดบนการ์ด Discord Bot</li>
+                    <li>ปุ่มควบคุมการดาวน์โหลดบน Discord สามารถสั่งหยุดชั่วคราว ดาวน์โหลดต่อ และยกเลิกได้ทันที</li>
+                    <li>ปุ่มเลือกรูปแบบไฟล์ MP4 (วิดีโอ) และ MP3 (ไฟล์เสียง) พร้อมระบบแยกโฟลเดอร์จัดเก็บอัตโนมัติ</li>
+                    <li>ปรับปรุงการหน่วงเวลาดึงข้อมูลสื่อจริง ป้องกันปัญหาไฟล์ถูกบันทึกเป็นชื่อชั่วคราว</li>
+                    <li>กำหนดรหัสงานดาวน์โหลดรูปแบบมาตรฐานตามวันเวลาและรอบการสั่งการ</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Real-time download progress, speed, size metrics, and ETA updates on Discord Bot card.</li>
+                    <li>Live download control buttons on Discord: pause, resume, and cancel downloads remotely.</li>
+                    <li>Dedicated format selector buttons for MP4 Video and MP3 Audio with automatic folder routing.</li>
+                    <li>Enhanced metadata synchronization preventing fast downloads from saving placeholder filenames.</li>
+                    <li>Standardized job ID format based on execution timestamp and sequence.</li>
+                  </>
+                )}
+              </ul>
+            </div>
+
             {/* Version 1.5.0 */}
             <div>
               <div className="flex items-center justify-between font-bold text-[var(--color-accent)] pb-0.5 border-b border-[var(--color-border)]/50">
