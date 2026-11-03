@@ -22,6 +22,24 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
 
   const t = translations[language];
 
+  const renderVersionBadge = (versionNumber: string) => {
+    if (updateInfo.currentVersion === versionNumber) {
+      return (
+        <span className="text-[10px] text-green-400 font-bold px-1.5 py-0.2 rounded bg-green-500/10 border border-green-500/30">
+          {t.currentVersionBadge}
+        </span>
+      );
+    }
+    if (updateInfo.latestVersion === versionNumber && updateInfo.hasUpdate) {
+      return (
+        <span className="text-[10px] text-amber-400 font-bold px-1.5 py-0.2 rounded bg-amber-500/10 border border-amber-500/30">
+          {language === 'th' ? 'เวอร์ชันใหม่ล่าสุด' : 'Latest'}
+        </span>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
       <div className="pencil-box max-w-lg w-full p-5 bg-[var(--color-surface)] text-[var(--color-text-main)] space-y-3.5 shadow-2xl border-2 border-[var(--color-border)]">
@@ -64,7 +82,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
             <div>
               <div className="flex items-center justify-between font-bold text-[var(--color-accent)] pb-0.5 border-b border-[var(--color-border)]/50">
                 <span>{language === 'th' ? 'เวอร์ชัน 1.4.3' : 'Version 1.4.3'}</span>
-                <span className="text-[10px] text-green-400">{t.currentVersionBadge}</span>
+                {renderVersionBadge('1.4.3')}
               </div>
               <ul className="list-disc list-inside text-[var(--color-text-muted)] space-y-0.5 pt-1 text-[11px]">
                 {language === 'th' ? (
@@ -89,8 +107,9 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
 
             {/* Version 1.4.0 */}
             <div>
-              <div className="font-bold text-[var(--color-accent)] pb-0.5 border-b border-[var(--color-border)]/50">
+              <div className="flex items-center justify-between font-bold text-[var(--color-accent)] pb-0.5 border-b border-[var(--color-border)]/50">
                 <span>{language === 'th' ? 'เวอร์ชัน 1.4.0' : 'Version 1.4.0'}</span>
+                {renderVersionBadge('1.4.0')}
               </div>
               <ul className="list-disc list-inside text-[var(--color-text-muted)] space-y-0.5 pt-1 text-[11px]">
                 {language === 'th' ? (
