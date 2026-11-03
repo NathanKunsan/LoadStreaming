@@ -34,6 +34,9 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
   const getActionLabel = (act: string) => {
     switch (act) {
       case 'actDownloadVideo': return t.actDownloadVideo;
+      case 'actDownloadVideo4K': return t.actDownloadVideo4K || (language === 'th' ? 'โหลดวิดีโอ (4K)' : 'Download (4K)');
+      case 'actDownloadVideo1080p': return t.actDownloadVideo1080p || (language === 'th' ? 'โหลดวิดีโอ (1080p)' : 'Download (1080p)');
+      case 'actDownloadVideo720p': return t.actDownloadVideo720p || (language === 'th' ? 'โหลดวิดีโอ (720p)' : 'Download (720p)');
       case 'actDownloadAudio': return t.actDownloadAudio;
       case 'actOpenFolder': return t.actOpenFolder;
       case 'actOpenConvert': return t.actOpenConvert;
@@ -44,7 +47,11 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
 
   const getActionIcon = (act: string) => {
     switch (act) {
-      case 'actDownloadVideo': return <Video className="w-5 h-5" />;
+      case 'actDownloadVideo':
+      case 'actDownloadVideo4K':
+      case 'actDownloadVideo1080p':
+      case 'actDownloadVideo720p':
+        return <Video className="w-5 h-5" />;
       case 'actDownloadAudio': return <Music className="w-5 h-5" />;
       case 'actOpenFolder': return <Folder className="w-5 h-5" />;
       case 'actOpenConvert': return <RefreshCw className="w-5 h-5" />;

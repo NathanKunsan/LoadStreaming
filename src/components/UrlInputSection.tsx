@@ -122,7 +122,7 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
         }
 
         if (info.resolutions && info.resolutions.length > 0) {
-          const def = info.resolutions.find(r => r.height === 1080) || info.resolutions[info.resolutions.length - 1];
+          const def = info.resolutions.find(r => r.height === 1080) || info.resolutions[0];
           setSelectedResolution(def.label);
         }
       }
@@ -210,9 +210,23 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
 
   const resolutionOptions: NeoDropdownOption<string>[] = useMemo(() => {
     if (videoInfo?.resolutions && videoInfo.resolutions.length > 0) {
-      return videoInfo.resolutions.map(r => ({ value: r.label, label: r.label }));
+      return videoInfo.resolutions.map(r => {
+        let tag = '';
+        if (r.height >= 2160) tag = ' (4K)';
+        else if (r.height >= 1440) tag = ' (2K)';
+        else if (r.height >= 1080) tag = ' (FHD)';
+        else if (r.height >= 720) tag = ' (HD)';
+        return { value: r.label, label: `${r.label}${tag}` };
+      });
     }
-    return [{ value: '1080p', label: '1080p (Default)' }];
+    return [
+      { value: '2160p', label: '2160p (4K)' },
+      { value: '1440p', label: '1440p (2K)' },
+      { value: '1080p', label: '1080p (FHD)' },
+      { value: '720p', label: '720p (HD)' },
+      { value: '480p', label: '480p' },
+      { value: '360p', label: '360p' }
+    ];
   }, [videoInfo]);
 
   const speedOptions: NeoDropdownOption<string>[] = [

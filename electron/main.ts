@@ -400,7 +400,24 @@ function generateJobId(suffix?: string | number): string {
   return suffix !== undefined ? `${base}_${suffix}` : base;
 }
 
-async function handleIncomingBotJob(jobData: { id?: string; url: string; channelId?: string; isPlaylist?: boolean; mediaType?: 'video' | 'audio' }) {
+function resolveTargetResolution(preferredRes: string, availableResolutions?: { height: number; label: string }[]): string {
+  if (!availableResolutions || availableResolutions.length === 0) {
+    return preferredRes || '1080p';
+  }
+  const cleanPref = preferredRes.toLowerCase();
+  const exact = availableResolutions.find(r => r.label.toLowerCase() === cleanPref);
+  if (exact) return exact.label;
+
+  const targetH = cleanPref === '4k' ? 2160 : cleanPref === '2k' ? 1440 : (parseInt(preferredRes.replace(/[^0-9]/g, ''), 10) || 1080);
+  const bestFit = availableResolutions
+    .filter(r => r.height <= targetH)
+    .sort((a, b) => b.height - a.height)[0];
+  if (bestFit) return bestFit.label;
+
+  return availableResolutions[0].label;
+}
+
+async function handleIncomingBotJob(jobData: { id?: string; url: string; channelId?: string; isPlaylist?: boolean; mediaType?: 'video' | 'audio'; resolution?: string }) {
   const cfg = storage.getConfig();
   const isEn = cfg.language === 'en';
   let url = jobData.url;
@@ -409,6 +426,7 @@ async function handleIncomingBotJob(jobData: { id?: string; url: string; channel
   }
   const mediaType: 'video' | 'audio' = jobData.mediaType === 'audio' ? 'audio' : 'video';
   const targetDir = downloader.resolveDestinationDir(cfg.outputDir, mediaType);
+  const preferredRes = jobData.resolution || cfg.defaultVideoResolution || '1080p';
 
   if (jobData.isPlaylist) {
     try {
@@ -422,7 +440,7 @@ async function handleIncomingBotJob(jobData: { id?: string; url: string; channel
             title: item.title,
             thumbnail: item.thumbnail || '',
             mediaType,
-            resolution: mediaType === 'video' ? '1080p' : undefined,
+            resolution: mediaType === 'video' ? preferredRes : undefined,
             outputDir: targetDir,
             status: 'Waiting',
             pendingMetadata: false,
@@ -448,7 +466,7 @@ async function handleIncomingBotJob(jobData: { id?: string; url: string; channel
     title: isEn ? 'Retrieving media details...' : 'กำลังเชื่อมต่อและดึงข้อมูลสื่อ...',
     thumbnail: '',
     mediaType,
-    resolution: mediaType === 'video' ? '1080p' : undefined,
+    resolution: mediaType === 'video' ? preferredRes : undefined,
     outputDir: targetDir,
     status: 'Waiting',
     pendingMetadata: true,
@@ -464,9 +482,9 @@ async function handleIncomingBotJob(jobData: { id?: string; url: string; channel
 
   // Background fetch metadata before letting queue download
   downloader.getVideoInfo(url).then((info) => {
-    const res = mediaType === 'video' && info.resolutions && info.resolutions.length > 0
-      ? (info.resolutions.find(r => r.height === 1080)?.label || info.resolutions[info.resolutions.length - 1].label)
-      : (mediaType === 'video' ? '1080p' : undefined);
+    const res = mediaType === 'video'
+      ? resolveTargetResolution(preferredRes, info.resolutions)
+      : undefined;
     downloader.updateJobInfo(initialJob.id, {
       title: info.title,
       thumbnail: info.thumbnail,
@@ -785,6 +803,7 @@ ipcMain.handle('toast-download-now', async (_, url: string) => {
   toastWindow?.hide();
   const cfg = storage.getConfig();
   const isEn = cfg.language === 'en';
+  const preferredRes = cfg.defaultVideoResolution || '1080p';
   const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const initialJob: DownloadJob = {
     id: jobId,
@@ -792,7 +811,7 @@ ipcMain.handle('toast-download-now', async (_, url: string) => {
     title: isEn ? 'Retrieving media details...' : 'กำลังเชื่อมต่อและดึงข้อมูลสื่อ...',
     thumbnail: '',
     mediaType: 'video',
-    resolution: '1080p',
+    resolution: preferredRes,
     outputDir: downloader.resolveDestinationDir(cfg.outputDir, 'video'),
     status: 'Waiting',
     pendingMetadata: true,
@@ -806,9 +825,7 @@ ipcMain.handle('toast-download-now', async (_, url: string) => {
   downloader.addJob(initialJob);
 
   downloader.getVideoInfo(url).then((info) => {
-    const res = info.resolutions && info.resolutions.length > 0
-      ? (info.resolutions.find(r => r.height === 1080)?.label || info.resolutions[info.resolutions.length - 1].label)
-      : '1080p';
+    const res = resolveTargetResolution(preferredRes, info.resolutions);
     downloader.updateJobInfo(jobId, {
       title: info.title,
       thumbnail: info.thumbnail,
@@ -858,15 +875,16 @@ function showDesktopToastMessage(message: string, type: 'info' | 'warning' = 'in
   } catch {}
 }
 
-function queueSingleVideoRadial(targetUrl: string, mediaType: 'video' | 'audio', cfg: any, isEn: boolean) {
+function queueSingleVideoRadial(targetUrl: string, mediaType: 'video' | 'audio', cfg: any, isEn: boolean, forcedResolution?: string) {
   const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const preferredRes = forcedResolution || cfg.defaultVideoResolution || '1080p';
   const initialJob: DownloadJob = {
     id: jobId,
     url: targetUrl,
     title: isEn ? 'Retrieving media details...' : 'กำลังเชื่อมต่อและดึงข้อมูลสื่อ...',
     thumbnail: '',
     mediaType,
-    resolution: mediaType === 'video' ? '1080p' : undefined,
+    resolution: mediaType === 'video' ? preferredRes : undefined,
     outputDir: downloader.resolveDestinationDir(cfg.outputDir, mediaType),
     status: 'Waiting',
     pendingMetadata: true,
@@ -881,15 +899,15 @@ function queueSingleVideoRadial(targetUrl: string, mediaType: 'video' | 'audio',
 
   showDesktopToastMessage(
     isEn
-      ? (mediaType === 'audio' ? 'Added to queue. Starting MP3 download...' : 'Added to queue. Starting download...')
-      : (mediaType === 'audio' ? 'เพิ่มเข้าคิวแล้ว กำลังเริ่มดาวน์โหลด MP3...' : 'เพิ่มเข้าคิวแล้ว กำลังเริ่มดาวน์โหลด...'),
+      ? (mediaType === 'audio' ? 'Added to queue. Starting MP3 download...' : `Added to queue (${preferredRes}). Starting download...`)
+      : (mediaType === 'audio' ? 'เพิ่มเข้าคิวแล้ว กำลังเริ่มดาวน์โหลด MP3...' : `เพิ่มเข้าคิวแล้ว (${preferredRes}) กำลังเริ่มดาวน์โหลด...`),
     'info'
   );
 
   downloader.getVideoInfo(targetUrl).then((info) => {
-    const res = mediaType === 'video' && info.resolutions && info.resolutions.length > 0
-      ? (info.resolutions.find(r => r.height === 1080)?.label || info.resolutions[info.resolutions.length - 1].label)
-      : (mediaType === 'video' ? '1080p' : undefined);
+    const res = mediaType === 'video'
+      ? resolveTargetResolution(preferredRes, info.resolutions)
+      : undefined;
     downloader.updateJobInfo(jobId, {
       title: info.title,
       thumbnail: info.thumbnail,
@@ -916,7 +934,10 @@ ipcMain.handle('execute-radial-action', async (_, actionKey: string) => {
   const isEn = cfg.language === 'en';
 
   switch (actionKey) {
-    case 'actDownloadVideo': {
+    case 'actDownloadVideo':
+    case 'actDownloadVideo4K':
+    case 'actDownloadVideo1080p':
+    case 'actDownloadVideo720p': {
       let targetUrl = clipboard.readText().trim();
       if (!downloader.isPotentialVideoUrl(targetUrl)) {
         if (capturedBrowserUrl && downloader.isPotentialVideoUrl(capturedBrowserUrl)) {
@@ -927,6 +948,11 @@ ipcMain.handle('execute-radial-action', async (_, actionKey: string) => {
       }
 
       if (downloader.isPotentialVideoUrl(targetUrl)) {
+        const forcedRes = actionKey === 'actDownloadVideo4K' ? '2160p'
+          : actionKey === 'actDownloadVideo1080p' ? '1080p'
+          : actionKey === 'actDownloadVideo720p' ? '720p'
+          : (cfg.defaultVideoResolution || '1080p');
+
         if (targetUrl.includes('list=')) {
           downloader.getPlaylistInfo(targetUrl).then((plInfo) => {
             if (plInfo && plInfo.items && plInfo.items.length > 0) {
@@ -937,7 +963,7 @@ ipcMain.handle('execute-radial-action', async (_, actionKey: string) => {
                   title: item.title,
                   thumbnail: item.thumbnail || '',
                   mediaType: 'video',
-                  resolution: '1080p',
+                  resolution: forcedRes,
                   outputDir: downloader.resolveDestinationDir(cfg.outputDir, 'video'),
                   status: 'Waiting',
                   progress: 0,
@@ -950,15 +976,15 @@ ipcMain.handle('execute-radial-action', async (_, actionKey: string) => {
                 downloader.addJob(itemJob);
               }
               showDesktopToastMessage(
-                isEn ? `Added ${plInfo.items.length} playlist items to queue.` : `เพิ่มเพลย์ลิสต์ ${plInfo.items.length} รายการเข้าคิวแล้ว`,
+                isEn ? `Added ${plInfo.items.length} playlist items (${forcedRes}) to queue.` : `เพิ่มเพลย์ลิสต์ ${plInfo.items.length} รายการ (${forcedRes}) เข้าคิวแล้ว`,
                 'info'
               );
             }
           }).catch(() => {
-            queueSingleVideoRadial(targetUrl, 'video', cfg, isEn);
+            queueSingleVideoRadial(targetUrl, 'video', cfg, isEn, forcedRes);
           });
         } else {
-          queueSingleVideoRadial(targetUrl, 'video', cfg, isEn);
+          queueSingleVideoRadial(targetUrl, 'video', cfg, isEn, forcedRes);
         }
       } else {
         showDesktopToastMessage(

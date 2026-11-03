@@ -89,6 +89,7 @@ export interface AppConfig {
   theme: 'yellow-black' | 'white-black' | 'white-blue' | 'black-blue';
   language: 'th' | 'en';
   outputDir: string;
+  defaultVideoResolution?: string;
   enableClipboardMonitor?: boolean;
   enableRadialMenu?: boolean;
   radialShortcut?: string;

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Keyboard, Compass, Link2, Folder, Palette, Languages, Check, Save, Bot } from 'lucide-react';
+import { Settings, Keyboard, Compass, Link2, Folder, Palette, Languages, Check, Save, Bot, Video } from 'lucide-react';
 import { translations, Language } from '../locales/translations';
 import { AppConfig } from '../../electron/types';
 import { NeoDropdown, NeoDropdownOption } from './NeoDropdown';
@@ -34,14 +34,27 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
   const [eastAct, setEastAct] = useState(config.radialActions?.east || 'actDownloadAudio');
   const [southAct, setSouthAct] = useState(config.radialActions?.south || 'actOpenFolder');
   const [westAct, setWestAct] = useState(config.radialActions?.west || 'actOpenConvert');
+  const [defaultResolution, setDefaultResolution] = useState(config.defaultVideoResolution || '1080p');
   const [enableRemote, setEnableRemote] = useState(config.enableDiscordRemote !== false);
   const [channelId, setChannelId] = useState(config.discordChannelId || '');
   const wsUrl = config.discordWsUrl && config.discordWsUrl !== 'ws://localhost:4040'
     ? config.discordWsUrl
     : 'wss://loadstreaming-bot.onrender.com';
 
+  const resolutionOptions: NeoDropdownOption<string>[] = [
+    { value: '2160p', label: '2160p (4K Ultra HD)' },
+    { value: '1440p', label: '1440p (2K Quad HD)' },
+    { value: '1080p', label: language === 'th' ? '1080p (Full HD - แนะนำ)' : '1080p (Full HD - Recommended)' },
+    { value: '720p', label: '720p (HD)' },
+    { value: '480p', label: '480p' },
+    { value: '360p', label: '360p' }
+  ];
+
   const actionOptions: NeoDropdownOption<string>[] = [
-    { value: 'actDownloadVideo', label: t.actDownloadVideo },
+    { value: 'actDownloadVideo', label: `${t.actDownloadVideo} (${defaultResolution})` },
+    { value: 'actDownloadVideo4K', label: language === 'th' ? 'ดาวน์โหลดวิดีโอ 4K (2160p)' : 'Download Video (4K 2160p)' },
+    { value: 'actDownloadVideo1080p', label: language === 'th' ? 'ดาวน์โหลดวิดีโอ 1080p (Full HD)' : 'Download Video (1080p FHD)' },
+    { value: 'actDownloadVideo720p', label: language === 'th' ? 'ดาวน์โหลดวิดีโอ 720p (HD)' : 'Download Video (720p HD)' },
     { value: 'actDownloadAudio', label: t.actDownloadAudio },
     { value: 'actOpenFolder', label: t.actOpenFolder },
     { value: 'actOpenConvert', label: t.actOpenConvert },
@@ -86,6 +99,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
         south: southAct,
         west: westAct
       },
+      defaultVideoResolution: defaultResolution,
       enableDiscordRemote: enableRemote,
       discordChannelId: channelId,
       discordWsUrl: wsUrl
@@ -292,6 +306,32 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
             <Folder className="w-3.5 h-3.5" />
             <span>{t.browseFolder}</span>
           </button>
+        </div>
+      </div>
+
+      {/* Section 4: Default Video Resolution for Quick Downloads */}
+      <div className="pencil-box p-4 bg-[var(--color-surface)] border-2 border-[var(--color-border)] text-[var(--color-text-main)] space-y-2 shadow-md">
+        <div className="flex items-center space-x-2 border-b border-[var(--color-border)]/50 pb-2">
+          <Video className="w-4 h-4 text-[var(--color-accent)]" />
+          <div>
+            <h3 className="text-xs font-bold">
+              {language === 'th' ? 'ความละเอียดวิดีโอเริ่มต้นสำหรับการสั่งงานด่วน' : 'Default Quick Download Resolution'}
+            </h3>
+            <p className="text-[11px] text-[var(--color-text-muted)]">
+              {language === 'th'
+                ? 'ความละเอียดที่ใช้เมื่อสั่งดาวน์โหลดผ่านวงล้อคีย์ลัด หรือเมื่อสั่งงานผ่าน Discord Bot โดยไม่ระบุความละเอียด'
+                : 'Preferred resolution used by Radial shortcut and Discord Bot remote downloads'}
+            </p>
+          </div>
+        </div>
+
+        <div className="pt-1 max-w-xs">
+          <NeoDropdown
+            value={defaultResolution}
+            onChange={setDefaultResolution}
+            options={resolutionOptions}
+            size="sm"
+          />
         </div>
       </div>
 

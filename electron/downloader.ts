@@ -309,8 +309,7 @@ export class DownloadEngine {
         '--skip-download',
         '--no-check-formats',
         '--no-warnings',
-        '--socket-timeout', '6',
-        '--extractor-args', 'youtube:player_client=android,web;player_skip=configs,webpage,hls',
+        '--socket-timeout', '10',
         '--ffmpeg-location', this.ffmpegPath,
         trimmedUrl
       ];
@@ -350,7 +349,7 @@ export class DownloadEngine {
             }
           }
 
-          const sortedResolutions = Array.from(resolutionMap.values()).sort((a, b) => a.height - b.height);
+          const sortedResolutions = Array.from(resolutionMap.values()).sort((a, b) => b.height - a.height);
 
           if (sortedResolutions.length === 0) {
             sortedResolutions.push({ height: 720, label: '720p', formatId: 'best' });

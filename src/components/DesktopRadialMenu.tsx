@@ -88,10 +88,33 @@ export const DesktopRadialMenu: React.FC<DesktopRadialMenuProps> = () => {
   const actionSouth = config.radialActions?.south || 'actOpenFolder';
   const actionWest = config.radialActions?.west || 'actOpenConvert';
 
+  const availableRes = ['1080p', '1440p', '2160p', '720p', '480p'];
+  const currentRes = config.defaultVideoResolution || '1080p';
+
+  const cycleResolution = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const curIdx = availableRes.indexOf(currentRes);
+    const nextIdx = (curIdx + 1) % availableRes.length;
+    const nextRes = availableRes[nextIdx];
+    const newCfg = { ...config, defaultVideoResolution: nextRes };
+    setConfig(newCfg);
+    if (window.electronAPI?.updateConfig) {
+      window.electronAPI.updateConfig({ defaultVideoResolution: nextRes });
+    }
+  };
+
   const getActionInfo = (actKey: string) => {
     switch (actKey) {
-      case 'actDownloadVideo':
-        return { label: language === 'th' ? 'โหลดวิดีโอ' : 'Download Video', icon: Video };
+      case 'actDownloadVideo': {
+        const res = config.defaultVideoResolution || '1080p';
+        return { label: language === 'th' ? `โหลดวิดีโอ (${res})` : `Download (${res})`, icon: Video };
+      }
+      case 'actDownloadVideo4K':
+        return { label: language === 'th' ? 'โหลดวิดีโอ (4K)' : 'Download (4K)', icon: Video };
+      case 'actDownloadVideo1080p':
+        return { label: language === 'th' ? 'โหลดวิดีโอ (1080p)' : 'Download (1080p)', icon: Video };
+      case 'actDownloadVideo720p':
+        return { label: language === 'th' ? 'โหลดวิดีโอ (720p)' : 'Download (720p)', icon: Video };
       case 'actDownloadAudio':
         return { label: language === 'th' ? 'โหลด MP3' : 'Download MP3', icon: Music };
       case 'actOpenFolder':
@@ -176,6 +199,8 @@ export const DesktopRadialMenu: React.FC<DesktopRadialMenuProps> = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         handleClose();
+      } else if (e.key === 'r' || e.key === 'R') {
+        cycleResolution();
       } else if (e.key === '1' || e.key === 'ArrowUp') {
         handleExecute('north');
       } else if (e.key === '2' || e.key === 'ArrowRight') {
@@ -313,14 +338,28 @@ export const DesktopRadialMenu: React.FC<DesktopRadialMenuProps> = () => {
         )}
       </svg>
 
-      {/* Center Hub Content: ESC / Close Vector */}
+      {/* Center Hub Content: ESC / Close Vector & Quick Resolution Switcher */}
       <div
-        onClick={handleClose}
-        className="absolute w-20 h-20 rounded-full flex flex-col items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors cursor-pointer z-20 pointer-events-auto"
-        title="ESC: ปิดวงล้อ"
+        className="absolute w-24 h-24 rounded-full flex flex-col items-center justify-center text-[var(--color-text-muted)] z-20 pointer-events-auto select-none"
       >
-        <X className="w-5 h-5 mb-0.5" />
-        <span className="text-[10px] font-bold font-mono tracking-wider">ESC</span>
+        <button
+          type="button"
+          onClick={handleClose}
+          className="flex flex-col items-center justify-center hover:text-[var(--color-accent)] transition-colors cursor-pointer"
+          title="ESC: ปิดวงล้อ"
+        >
+          <X className="w-4 h-4 mb-0.5" />
+          <span className="text-[9px] font-bold font-mono tracking-wider">ESC</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={cycleResolution}
+          className="mt-1 px-2 py-0.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-full text-[9px] font-bold text-[var(--color-accent)] hover:border-[var(--color-accent)] hover:scale-105 transition-all cursor-pointer font-mono shadow-sm"
+          title={language === 'th' ? 'คลิกหรือกดปุ่ม R เพื่อสลับความละเอียด' : 'Click or press R to switch resolution'}
+        >
+          {currentRes}
+        </button>
       </div>
 
       {/* Slices Content (Icons & Labels positioned at quadrant centers) */}

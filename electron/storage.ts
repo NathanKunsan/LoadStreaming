@@ -56,6 +56,7 @@ export class StorageManager {
       theme: 'yellow-black',
       language: 'th',
       outputDir: defaultDownloads,
+      defaultVideoResolution: '1080p',
       discordWsUrl: 'wss://loadstreaming-bot.onrender.com'
     };
 
