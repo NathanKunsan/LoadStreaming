@@ -563,8 +563,15 @@ export class DownloadEngine {
       }
     }
 
+    const isPlaceholderTitle = !titleToUse ||
+      titleToUse.includes('กำลังดึงข้อมูล') ||
+      titleToUse.includes('กำลังเชื่อมต่อ') ||
+      titleToUse.includes('Retrieving media');
+
     const safeTitle = this.sanitizeFilename(titleToUse);
-    const outputTemplate = path.join(job.outputDir, `${safeTitle}.%(ext)s`);
+    const outputTemplate = isPlaceholderTitle
+      ? path.join(job.outputDir, '%(title)s.%(ext)s')
+      : path.join(job.outputDir, `${safeTitle}.%(ext)s`);
 
     // Optimized parameters: smooth output stream, efficient fragmenting without stutter
     const args: string[] = [
@@ -642,6 +649,20 @@ export class DownloadEngine {
           }
         }
 
+        // Detect actual filename / destination from yt-dlp output
+        const destMatch = line.match(/\[download\] Destination:\s+(.+)$/i) ||
+                          line.match(/\[Merger\] Merging formats into "(.+)"/i) ||
+                          line.match(/\[ExtractAudio\] Destination:\s+(.+)$/i);
+        if (destMatch && destMatch[1]) {
+          const detectedPath = destMatch[1].trim();
+          finalExpectedFile = detectedPath;
+          const detectedBase = path.basename(detectedPath, path.extname(detectedPath));
+          if (detectedBase && (job.title.includes('กำลังดึงข้อมูล') || job.title.includes('กำลังเชื่อมต่อ') || job.title.includes('Retrieving media') || !job.title)) {
+            job.title = detectedBase;
+            this.emitUpdate(job);
+          }
+        }
+
         this.parseSmoothProgress(line, job, streamStage, () => {
           const now = Date.now();
           if (now - lastEmitTime >= 150) {
@@ -671,15 +692,35 @@ export class DownloadEngine {
         job.etaStr = '00:00';
         job.completedAt = Date.now();
 
-        if (fs.existsSync(finalExpectedFile)) {
+        if (finalExpectedFile && fs.existsSync(finalExpectedFile)) {
           job.finalFilePath = finalExpectedFile;
+          const detectedBase = path.basename(finalExpectedFile, path.extname(finalExpectedFile));
+          if (detectedBase && (job.title.includes('กำลังดึงข้อมูล') || job.title.includes('กำลังเชื่อมต่อ') || job.title.includes('Retrieving media') || !job.title)) {
+            job.title = detectedBase;
+          }
         } else {
           try {
             const files = fs.readdirSync(job.outputDir);
             const targetExt = job.mediaType === 'video' ? '.mp4' : '.mp3';
-            const match = files.find(f => f.startsWith(safeTitle) && f.endsWith(targetExt));
+            let match = !isPlaceholderTitle ? files.find(f => f.startsWith(safeTitle) && f.endsWith(targetExt)) : null;
+            if (!match) {
+              const recentFiles = files
+                .filter(f => f.endsWith(targetExt))
+                .map(f => {
+                  const fp = path.join(job.outputDir, f);
+                  return { name: f, path: fp, mtime: fs.statSync(fp).mtimeMs };
+                })
+                .sort((a, b) => b.mtime - a.mtime);
+              if (recentFiles.length > 0 && Date.now() - recentFiles[0].mtime < 20000) {
+                match = recentFiles[0].name;
+              }
+            }
             if (match) {
               job.finalFilePath = path.join(job.outputDir, match);
+              const detectedBase = path.basename(match, targetExt);
+              if (detectedBase && (job.title.includes('กำลังดึงข้อมูล') || job.title.includes('กำลังเชื่อมต่อ') || job.title.includes('Retrieving media') || !job.title)) {
+                job.title = detectedBase;
+              }
             }
           } catch (e) {}
         }

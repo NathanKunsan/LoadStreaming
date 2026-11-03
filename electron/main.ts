@@ -97,7 +97,7 @@ function createWindow() {
           } else {
             const now = Date.now();
             const lastSent = lastDiscordProgressSent.get(job.id) || 0;
-            if (now - lastSent >= 1000 || job.status === 'Paused' || job.status === 'Completed') {
+            if (lastSent === 0 || now - lastSent >= 1000 || job.status === 'Paused' || job.status === 'Completed') {
               lastDiscordProgressSent.set(job.id, now);
               discordWs.send(JSON.stringify({
                 type: 'JOB_PROGRESS',
@@ -377,6 +377,7 @@ function setupDiscordRemote() {
 
 async function handleIncomingBotJob(jobData: { id: string; url: string; channelId?: string; isPlaylist?: boolean }) {
   const cfg = storage.getConfig();
+  const isEn = cfg.language === 'en';
   const url = jobData.url;
   const targetDir = downloader.resolveDestinationDir(cfg.outputDir, 'video');
 
@@ -394,6 +395,7 @@ async function handleIncomingBotJob(jobData: { id: string; url: string; channelI
             resolution: '1080p',
             outputDir: targetDir,
             status: 'Waiting',
+            pendingMetadata: false,
             progress: 0,
             downloadedSizeStr: '0 B',
             totalSizeStr: '--',
@@ -413,12 +415,13 @@ async function handleIncomingBotJob(jobData: { id: string; url: string; channelI
   const initialJob: DownloadJob = {
     id: jobData.id || `remote_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     url,
-    title: 'กำลังดึงข้อมูล...',
+    title: isEn ? 'Retrieving media details...' : 'กำลังเชื่อมต่อและดึงข้อมูลสื่อ...',
     thumbnail: '',
     mediaType: 'video',
     resolution: '1080p',
     outputDir: targetDir,
     status: 'Waiting',
+    pendingMetadata: true,
     progress: 0,
     downloadedSizeStr: '0 B',
     totalSizeStr: '--',
@@ -429,15 +432,23 @@ async function handleIncomingBotJob(jobData: { id: string; url: string; channelI
 
   downloader.addJob(initialJob);
 
-  // Background fetch metadata
-  downloader.getMediaInfo(url).then((res) => {
-    if (res.videoInfo) {
-      downloader.updateJobInfo(initialJob.id, {
-        title: res.videoInfo.title,
-        thumbnail: res.videoInfo.thumbnail
-      });
-    }
-  }).catch(() => {});
+  // Background fetch metadata before letting queue download
+  downloader.getVideoInfo(url).then((info) => {
+    const res = info.resolutions && info.resolutions.length > 0
+      ? (info.resolutions.find(r => r.height === 1080)?.label || info.resolutions[info.resolutions.length - 1].label)
+      : '1080p';
+    downloader.updateJobInfo(initialJob.id, {
+      title: info.title,
+      thumbnail: info.thumbnail,
+      resolution: res,
+      pendingMetadata: false
+    });
+  }).catch((err) => {
+    console.error('[DiscordRemote] ดึงข้อมูลไม่สำเร็จ:', err);
+    downloader.updateJobInfo(initialJob.id, {
+      pendingMetadata: false
+    });
+  });
 }
 
 app.whenReady().then(() => {
