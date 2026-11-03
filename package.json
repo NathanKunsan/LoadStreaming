@@ -1,6 +1,6 @@
 {
   "name": "loadstreaming",
-  "version": "1.4.3",
+  "version": "1.5.0",
   "description": "LoadStreaming - YouTube Video and Audio Downloader for Windows",
   "main": "dist-electron/main.js",
   "type": "commonjs",

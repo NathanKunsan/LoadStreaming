@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Keyboard, Compass, Link2, Folder, Palette, Languages, Check, Save } from 'lucide-react';
+import { Settings, Keyboard, Compass, Link2, Folder, Palette, Languages, Check, Save, Bot } from 'lucide-react';
 import { translations, Language } from '../locales/translations';
 import { AppConfig } from '../../electron/types';
 import { NeoDropdown, NeoDropdownOption } from './NeoDropdown';
@@ -34,6 +34,9 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
   const [eastAct, setEastAct] = useState(config.radialActions?.east || 'actDownloadAudio');
   const [southAct, setSouthAct] = useState(config.radialActions?.south || 'actOpenFolder');
   const [westAct, setWestAct] = useState(config.radialActions?.west || 'actOpenConvert');
+  const [enableRemote, setEnableRemote] = useState(config.enableDiscordRemote !== false);
+  const [channelId, setChannelId] = useState(config.discordChannelId || '');
+  const [wsUrl, setWsUrl] = useState(config.discordWsUrl || 'ws://localhost:4040');
 
   const actionOptions: NeoDropdownOption<string>[] = [
     { value: 'actDownloadVideo', label: t.actDownloadVideo },
@@ -80,7 +83,10 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
         east: eastAct,
         south: southAct,
         west: westAct
-      }
+      },
+      enableDiscordRemote: enableRemote,
+      discordChannelId: channelId,
+      discordWsUrl: wsUrl
     });
 
     if (window.electronAPI) {
@@ -338,6 +344,56 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Section 4: Remote Download Bot Integration */}
+      <div className="pencil-box p-4 bg-[var(--color-surface)] border-2 border-[var(--color-border)] text-[var(--color-text-main)] space-y-3 shadow-md">
+        <div className="flex items-center justify-between border-b border-[var(--color-border)]/50 pb-2">
+          <div className="flex items-center space-x-2">
+            <Bot className="w-4 h-4 text-[var(--color-accent)]" />
+            <h3 className="text-xs font-bold">{t.discordRemoteTitle}</h3>
+          </div>
+          <label className="flex items-center space-x-2 cursor-pointer">
+            <span className="text-[11px] text-[var(--color-text-muted)] font-medium">
+              {t.enableDiscordRemoteLabel}
+            </span>
+            <input
+              type="checkbox"
+              checked={enableRemote}
+              onChange={(e) => setEnableRemote(e.target.checked)}
+              className="accent-[var(--color-accent)] w-4 h-4 rounded cursor-pointer"
+            />
+          </label>
+        </div>
+
+        {enableRemote && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-[var(--color-text-muted)]">
+                {t.discordChannelIdLabel}
+              </label>
+              <input
+                type="text"
+                value={channelId}
+                onChange={(e) => setChannelId(e.target.value)}
+                placeholder={t.discordChannelIdPlaceholder}
+                className="w-full h-8 px-2.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text-main)] font-mono outline-hidden focus:border-[var(--color-accent)]"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-[var(--color-text-muted)]">
+                {t.discordWsUrlLabel}
+              </label>
+              <input
+                type="text"
+                value={wsUrl}
+                onChange={(e) => setWsUrl(e.target.value)}
+                placeholder={t.discordWsUrlPlaceholder}
+                className="w-full h-8 px-2.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text-main)] font-mono outline-hidden focus:border-[var(--color-accent)]"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -78,6 +78,31 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
 
           {/* Changelog Scrollable Container (Pure Thai / Pure English) */}
           <div className="max-h-56 overflow-y-auto p-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-xs space-y-3 font-sans select-text">
+            {/* Version 1.5.0 */}
+            <div>
+              <div className="flex items-center justify-between font-bold text-[var(--color-accent)] pb-0.5 border-b border-[var(--color-border)]/50">
+                <span>{language === 'th' ? 'เวอร์ชัน 1.5.0' : 'Version 1.5.0'}</span>
+                {renderVersionBadge('1.5.0')}
+              </div>
+              <ul className="list-disc list-inside text-[var(--color-text-muted)] space-y-0.5 pt-1 text-[11px]">
+                {language === 'th' ? (
+                  <>
+                    <li>รองรับการสั่งดาวน์โหลดระยะไกลผ่านระบบบอท ทั้งแบบส่งข้อมูลทันทีและระบบคิวรับคำสั่งอัตโนมัติ</li>
+                    <li>ระบบสร้างห้องข้อความส่วนตัวอัตโนมัติเมื่อเข้าห้องเสียงที่กำหนด พร้อมตัดสายและป้องกันการสร้างห้องซ้ำ</li>
+                    <li>ระบบคิวสำรองรองรับการบันทึกคำสั่งล่วงหน้าแม้ขณะปิดคอมพิวเตอร์ และจะเริ่มดาวน์โหลดทันทีเมื่อเปิดโปรแกรม</li>
+                    <li>เพิ่มแถบการเชื่อมต่อระบบสั่งดาวน์โหลดระยะไกลในหน้าต่างตั้งค่า พร้อมแสดงสถานะการเชื่อมต่อ</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Added remote download support via automated bot with real-time dispatch and background queueing.</li>
+                    <li>Dynamic personal text channel creation upon joining the designated voice trigger with instant disconnect and duplicate prevention.</li>
+                    <li>Offline queue buffer stores incoming jobs while the computer is turned off and initiates downloads upon opening the application.</li>
+                    <li>Added remote download integration panel in Settings with live connection status.</li>
+                  </>
+                )}
+              </ul>
+            </div>
+
             {/* Version 1.4.3 */}
             <div>
               <div className="flex items-center justify-between font-bold text-[var(--color-accent)] pb-0.5 border-b border-[var(--color-border)]/50">

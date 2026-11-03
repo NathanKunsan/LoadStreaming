@@ -162,6 +162,15 @@ export const translations = {
     actOpenConvert: 'เปิดหน้าแปลงไฟล์',
     actToggleApp: 'สลับแสดง/ซ่อนโปรแกรม',
     pressKeysToRecord: 'กดปุ่มบนคีย์บอร์ดเพื่อบันทึกคีย์ลัด',
+    discordRemoteTitle: 'สั่งดาวน์โหลดระยะไกลผ่านระบบบอท',
+    enableDiscordRemoteLabel: 'เปิดใช้งานการรับคำสั่งจากบอท',
+    discordChannelIdLabel: 'รหัสห้องรับคำสั่ง',
+    discordChannelIdPlaceholder: 'กรอกรหัสห้องจากบอท เช่น 1567205338317324330',
+    discordWsUrlLabel: 'ที่อยู่เซิร์ฟเวอร์บอท',
+    discordWsUrlPlaceholder: 'ws://localhost:4040',
+    discordStatusConnected: 'เชื่อมต่อกับบอทแล้ว',
+    discordStatusDisconnected: 'ไม่ได้เชื่อมต่อกับบอท',
+    discordStatusConnecting: 'กำลังเชื่อมต่อกับบอท...',
     saveSettings: 'บันทึกการตั้งค่า'
   },
   en: {
@@ -325,6 +334,15 @@ export const translations = {
     actOpenConvert: 'Open Converter Tab',
     actToggleApp: 'Toggle Main Window',
     pressKeysToRecord: 'Press shortcut keys to record',
+    discordRemoteTitle: 'Remote Download Integration',
+    enableDiscordRemoteLabel: 'Enable Remote Download Bot',
+    discordChannelIdLabel: 'Command Channel ID',
+    discordChannelIdPlaceholder: 'Enter channel ID e.g. 1567205338317324330',
+    discordWsUrlLabel: 'Bot Server URL',
+    discordWsUrlPlaceholder: 'ws://localhost:4040',
+    discordStatusConnected: 'Connected to Bot',
+    discordStatusDisconnected: 'Disconnected from Bot',
+    discordStatusConnecting: 'Connecting to Bot...',
     saveSettings: 'Save Settings'
   }
 };

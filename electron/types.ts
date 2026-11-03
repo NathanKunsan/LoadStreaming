@@ -98,6 +98,9 @@ export interface AppConfig {
     south: string;
     west: string;
   };
+  enableDiscordRemote?: boolean;
+  discordChannelId?: string;
+  discordWsUrl?: string;
 }
 
 export type AudioFormat = 'mp3' | 'wav' | 'flac' | 'm4a' | 'aac' | 'ogg' | 'opus' | 'wma' | 'aiff' | 'alac' | 'amr';

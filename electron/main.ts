@@ -81,10 +81,32 @@ function createWindow() {
   downloader.setCallbacks(
     (job: DownloadJob) => {
       mainWindow?.webContents.send('job-updated', job);
+      if (job.status === 'Failed' && discordWs && discordWs.readyState === 1) {
+        const cfg = storage.getConfig();
+        if (cfg.discordChannelId) {
+          discordWs.send(JSON.stringify({
+            type: 'JOB_FAILED',
+            channelId: cfg.discordChannelId,
+            url: job.url,
+            error: job.error
+          }));
+        }
+      }
     },
     (historyItem) => {
       storage.addHistoryItem(historyItem);
       mainWindow?.webContents.send('history-updated', storage.getHistory());
+      if (discordWs && discordWs.readyState === 1) {
+        const cfg = storage.getConfig();
+        if (cfg.discordChannelId) {
+          discordWs.send(JSON.stringify({
+            type: 'JOB_COMPLETE',
+            channelId: cfg.discordChannelId,
+            title: historyItem.title,
+            url: historyItem.filePath
+          }));
+        }
+      }
     },
     (jobs: DownloadJob[]) => {
       storage.saveJobs(jobs);
@@ -259,12 +281,110 @@ function initClipboardMonitor() {
   }, 1000);
 }
 
+let discordWs: any = null;
+let discordReconnectTimer: NodeJS.Timeout | null = null;
+
+function setupDiscordRemote() {
+  if (discordReconnectTimer) {
+    clearTimeout(discordReconnectTimer);
+    discordReconnectTimer = null;
+  }
+  if (discordWs) {
+    try {
+      discordWs.close();
+    } catch (e) {}
+    discordWs = null;
+  }
+
+  const config = storage.getConfig();
+  if (config.enableDiscordRemote === false || !config.discordChannelId) {
+    return;
+  }
+
+  const wsUrl = config.discordWsUrl || 'ws://localhost:4040';
+  const channelId = config.discordChannelId.trim();
+
+  try {
+    const ws = new (globalThis as any).WebSocket(wsUrl);
+    discordWs = ws;
+
+    ws.onopen = () => {
+      console.log('[DiscordRemote] เชื่อมต่อกับบอทสำเร็จ ลงทะเบียนห้อง:', channelId);
+      ws.send(JSON.stringify({ type: 'REGISTER', channelId }));
+    };
+
+    ws.onmessage = async (event: any) => {
+      try {
+        const payload = JSON.parse(event.data.toString());
+        if (payload.type === 'NEW_JOB' && payload.job) {
+          handleIncomingBotJob(payload.job);
+        } else if (payload.type === 'QUEUED_JOBS' && Array.isArray(payload.jobs)) {
+          for (const job of payload.jobs) {
+            handleIncomingBotJob(job);
+          }
+        }
+      } catch (err) {
+        console.error('[DiscordRemote] ข้อผิดพลาดในการอ่านข้อความ:', err);
+      }
+    };
+
+    ws.onerror = () => {
+      // Quietly ignore connection errors if bot is offline
+    };
+
+    ws.onclose = () => {
+      discordWs = null;
+      discordReconnectTimer = setTimeout(() => {
+        setupDiscordRemote();
+      }, 10000);
+    };
+  } catch (err) {
+    console.error('[DiscordRemote] เริ่มการเชื่อมต่อล้มเหลว:', err);
+  }
+}
+
+async function handleIncomingBotJob(jobData: { id: string; url: string; channelId?: string }) {
+  const cfg = storage.getConfig();
+  const url = jobData.url;
+  const targetDir = downloader.resolveDestinationDir(cfg.outputDir, 'video');
+
+  const initialJob: DownloadJob = {
+    id: `remote_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    url,
+    title: 'กำลังดึงข้อมูล...',
+    thumbnail: '',
+    mediaType: 'video',
+    resolution: '1080p',
+    outputDir: targetDir,
+    status: 'Waiting',
+    progress: 0,
+    downloadedSizeStr: '0 B',
+    totalSizeStr: '--',
+    downloadSpeedStr: '--',
+    etaStr: '--',
+    createdAt: Date.now()
+  };
+
+  downloader.addJob(initialJob);
+
+  // Background fetch metadata
+  downloader.getMediaInfo(url).then((res) => {
+    if (res.videoInfo) {
+      downloader.updateJobInfo(initialJob.id, {
+        title: res.videoInfo.title,
+        thumbnail: res.videoInfo.thumbnail
+      });
+    }
+  }).catch(() => {});
+}
+
 app.whenReady().then(() => {
   createWindow();
   createTray();
   createToastWindow();
   createRadialWindow();
   initClipboardMonitor();
+  setupDiscordRemote();
   const cfg = storage.getConfig();
   if (cfg.enableRadialMenu !== false) {
     registerRadialShortcut(cfg.radialShortcut || 'Alt+Q');
@@ -319,7 +439,9 @@ ipcMain.handle('get-config', () => {
 });
 
 ipcMain.handle('update-config', (_, partial: Partial<AppConfig>) => {
-  return storage.updateConfig(partial);
+  const updated = storage.updateConfig(partial);
+  setupDiscordRemote();
+  return updated;
 });
 
 ipcMain.handle('select-directory', async () => {
