@@ -1,26 +1,30 @@
 ; build/installer.nsh
 ; Custom NSIS script for LoadStreaming:
 ; 1. Removes version number from bottom branding
-; 2. Provides default download location selection page before installation
-; 3. Provides desktop shortcut selection checkbox page
-; 4. 100% Pure English text
+; 2. Enforces /LoadStreamingProgram in destination folder
+; 3. Provides default download location selection page before installation
+; 4. Provides desktop shortcut selection checkbox page
+; 5. Provides uninstall prompt for downloaded media folder (LoadStreaming)
+; 6. 100% Pure English text
 
 BrandingText "LoadStreaming"
+
+InstallDir "C:\LoadStreamingProgram"
 
 !macro preInit
   !ifndef BUILD_UNINSTALLER
     SetRegView 64
-    WriteRegExpandStr HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation "$LOCALAPPDATA\Programs\LoadStreamingProgram"
-    WriteRegExpandStr HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation "$LOCALAPPDATA\Programs\LoadStreamingProgram"
+    WriteRegExpandStr HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation "C:\LoadStreamingProgram"
+    WriteRegExpandStr HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation "C:\LoadStreamingProgram"
     SetRegView 32
-    WriteRegExpandStr HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation "$LOCALAPPDATA\Programs\LoadStreamingProgram"
-    WriteRegExpandStr HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation "$LOCALAPPDATA\Programs\LoadStreamingProgram"
+    WriteRegExpandStr HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation "C:\LoadStreamingProgram"
+    WriteRegExpandStr HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation "C:\LoadStreamingProgram"
   !endif
 !macroend
 
 !macro customInit
   !ifndef BUILD_UNINSTALLER
-    StrCpy $INSTDIR "$LOCALAPPDATA\Programs\LoadStreamingProgram"
+    StrCpy $INSTDIR "C:\LoadStreamingProgram"
   !endif
 !macroend
 
@@ -34,12 +38,54 @@ Var DownloadLocationPath
 Var CreateDesktopShortcutCheckbox
 Var CreateDesktopShortcutState
 
+Function SanitizeInstallDir
+  ; Trim trailing backslashes and forward slashes
+  loop_trim:
+    StrCpy $0 $INSTDIR "" -1
+    ${If} $0 == "\"
+    ${OrIf} $0 == "/"
+      StrCpy $INSTDIR $INSTDIR -1
+      Goto loop_trim
+    ${EndIf}
+
+  ; Check if $INSTDIR already ends with "LoadStreamingProgram" (length 20)
+  StrLen $1 $INSTDIR
+  ${If} $1 >= 20
+    StrCpy $0 $INSTDIR "" -20
+    ${If} $0 == "LoadStreamingProgram"
+      Return
+    ${EndIf}
+  ${EndIf}
+
+  ; Check if $INSTDIR ends with "LoadStreaming" (length 13)
+  ${If} $1 >= 13
+    StrCpy $0 $INSTDIR "" -13
+    ${If} $0 == "LoadStreaming"
+      StrCpy $INSTDIR $INSTDIR -13
+      loop_trim2:
+        StrCpy $0 $INSTDIR "" -1
+        ${If} $0 == "\"
+        ${OrIf} $0 == "/"
+          StrCpy $INSTDIR $INSTDIR -1
+          Goto loop_trim2
+        ${EndIf}
+      StrCpy $INSTDIR "$INSTDIR\LoadStreamingProgram"
+      Return
+    ${EndIf}
+  ${EndIf}
+
+  ; Otherwise, automatically append \LoadStreamingProgram
+  StrCpy $INSTDIR "$INSTDIR\LoadStreamingProgram"
+FunctionEnd
+
 !macro customPageAfterChangeDir
   Page custom DownloadLocationPageCreate DownloadLocationPageLeave
   Page custom ShortcutPageCreate ShortcutPageLeave
 !macroend
 
 Function DownloadLocationPageCreate
+  Call SanitizeInstallDir
+
   nsDialogs::Create 1018
   Pop $DownloadLocationPage
   ${If} $DownloadLocationPage == error
@@ -70,7 +116,7 @@ Function OnBrowseDownloadLocation
   nsDialogs::SelectFolderDialog "Select Default Download Folder" "$PROFILE\Downloads"
   Pop $0
   ${If} $0 != "error"
-    ; Strip trailing slash if present (e.g. D:\ -> D: or C:\Folder\ -> C:\Folder)
+    ; Strip trailing slash if present
     StrCpy $1 $0 "" -1
     ${If} $1 == "\"
       StrCpy $0 $0 -1
@@ -88,7 +134,7 @@ Function DownloadLocationPageLeave
     StrCpy $DownloadLocationPath "$PROFILE\Downloads\LoadStreaming"
   ${EndIf}
 
-  ; Fix double backslash after drive letter if present (e.g. D:\\ -> D:\)
+  ; Fix double backslash after drive letter if present
   StrCpy $1 $DownloadLocationPath 3
   StrCpy $2 $DownloadLocationPath "" 3
   StrCpy $3 $1 "" 1
@@ -120,6 +166,8 @@ Function ShortcutPageLeave
 FunctionEnd
 
 !macro customInstall
+  Call SanitizeInstallDir
+
   ${If} $CreateDesktopShortcutState == ${BST_CHECKED}
     CreateShortCut "$DESKTOP\LoadStreaming.lnk" "$INSTDIR\LoadStreaming.exe" "" "$INSTDIR\LoadStreaming.exe" 0
   ${Else}
@@ -138,3 +186,63 @@ FunctionEnd
 !macroend
 !endif
 
+; -------------------------------------------------------------
+; Uninstaller Logic
+; -------------------------------------------------------------
+!ifdef BUILD_UNINSTALLER
+!include "LogicLib.nsh"
+
+Var DeleteDownloadDir
+Var DownloadLocationToDelete
+
+!macro customUnInit
+  StrCpy $DeleteDownloadDir "0"
+  StrCpy $DownloadLocationToDelete ""
+
+  ; 1. Try reading saved download dir from default_download_dir.txt before INSTDIR is deleted
+  ${If} ${FileExists} "$INSTDIR\default_download_dir.txt"
+    FileOpen $0 "$INSTDIR\default_download_dir.txt" r
+    ${If} $0 != 0
+      FileRead $0 $DownloadLocationToDelete
+      FileClose $0
+    ${EndIf}
+  ${EndIf}
+
+  ; 2. Trim trailing whitespace, newline or carriage return from file read
+  loop_trim_un:
+    StrCpy $0 $DownloadLocationToDelete "" -1
+    ${If} $0 == "$\r"
+    ${OrIf} $0 == "$\n"
+    ${OrIf} $0 == " "
+      StrCpy $DownloadLocationToDelete $DownloadLocationToDelete -1
+      Goto loop_trim_un
+    ${EndIf}
+
+  ; 3. Fallback to default download location if empty or file did not exist
+  ${If} $DownloadLocationToDelete == ""
+    ${If} ${FileExists} "$PROFILE\Downloads\LoadStreaming\*.*"
+      StrCpy $DownloadLocationToDelete "$PROFILE\Downloads\LoadStreaming"
+    ${EndIf}
+  ${EndIf}
+
+  ; 4. If download media folder exists, ask user whether to delete it or keep it
+  ${If} $DownloadLocationToDelete != ""
+  ${AndIf} ${FileExists} "$DownloadLocationToDelete\*.*"
+    MessageBox MB_YESNO|MB_ICONQUESTION \
+      "Do you want to also delete your downloaded media files folder ('LoadStreaming') and all files inside?$\r$\n$\r$\nFolder: $DownloadLocationToDelete$\r$\n$\r$\n- Choose 'Yes' to remove LoadStreamingProgram AND delete your downloaded media files.$\r$\n- Choose 'No' to remove LoadStreamingProgram but KEEP your downloaded media files." \
+      IDNO keep_download_files
+    StrCpy $DeleteDownloadDir "1"
+    keep_download_files:
+  ${EndIf}
+!macroend
+
+!macro customUnInstall
+  ; LoadStreamingProgram ($INSTDIR) is automatically deleted by NSIS
+  ; If user chose 'Yes', also delete the downloaded media folder LoadStreaming
+  ${If} $DeleteDownloadDir == "1"
+  ${AndIf} $DownloadLocationToDelete != ""
+  ${AndIf} ${FileExists} "$DownloadLocationToDelete\*.*"
+    RMDir /r "$DownloadLocationToDelete"
+  ${EndIf}
+!macroend
+!endif
