@@ -375,24 +375,42 @@ function setupDiscordRemote() {
   }
 }
 
-async function handleIncomingBotJob(jobData: { id: string; url: string; channelId?: string; isPlaylist?: boolean }) {
+function generateJobId(suffix?: string | number): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  let hours = now.getHours();
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const hours12 = String(hours).padStart(2, '0');
+  const base = `LoadStreaming_${year}${month}${day}_${hours12}${minutes}${seconds}${ampm}`;
+  return suffix !== undefined ? `${base}_${suffix}` : base;
+}
+
+async function handleIncomingBotJob(jobData: { id?: string; url: string; channelId?: string; isPlaylist?: boolean; mediaType?: 'video' | 'audio' }) {
   const cfg = storage.getConfig();
   const isEn = cfg.language === 'en';
   const url = jobData.url;
-  const targetDir = downloader.resolveDestinationDir(cfg.outputDir, 'video');
+  const mediaType: 'video' | 'audio' = jobData.mediaType === 'audio' ? 'audio' : 'video';
+  const targetDir = downloader.resolveDestinationDir(cfg.outputDir, mediaType);
 
   if (jobData.isPlaylist) {
     try {
       const plInfo = await downloader.getPlaylistInfo(url);
       if (plInfo && plInfo.items && plInfo.items.length > 0) {
+        let idx = 1;
         for (const item of plInfo.items) {
           const itemJob: DownloadJob = {
-            id: `remote_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            id: generateJobId(idx++),
             url: item.url,
             title: item.title,
             thumbnail: item.thumbnail || '',
-            mediaType: 'video',
-            resolution: '1080p',
+            mediaType,
+            resolution: mediaType === 'video' ? '1080p' : undefined,
             outputDir: targetDir,
             status: 'Waiting',
             pendingMetadata: false,
@@ -413,12 +431,12 @@ async function handleIncomingBotJob(jobData: { id: string; url: string; channelI
   }
 
   const initialJob: DownloadJob = {
-    id: jobData.id || `remote_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    id: jobData.id || generateJobId(),
     url,
     title: isEn ? 'Retrieving media details...' : 'กำลังเชื่อมต่อและดึงข้อมูลสื่อ...',
     thumbnail: '',
-    mediaType: 'video',
-    resolution: '1080p',
+    mediaType,
+    resolution: mediaType === 'video' ? '1080p' : undefined,
     outputDir: targetDir,
     status: 'Waiting',
     pendingMetadata: true,
@@ -434,9 +452,9 @@ async function handleIncomingBotJob(jobData: { id: string; url: string; channelI
 
   // Background fetch metadata before letting queue download
   downloader.getVideoInfo(url).then((info) => {
-    const res = info.resolutions && info.resolutions.length > 0
+    const res = mediaType === 'video' && info.resolutions && info.resolutions.length > 0
       ? (info.resolutions.find(r => r.height === 1080)?.label || info.resolutions[info.resolutions.length - 1].label)
-      : '1080p';
+      : (mediaType === 'video' ? '1080p' : undefined);
     downloader.updateJobInfo(initialJob.id, {
       title: info.title,
       thumbnail: info.thumbnail,
