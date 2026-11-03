@@ -78,6 +78,33 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
 
           {/* Changelog Scrollable Container (Pure Thai / Pure English) */}
           <div className="max-h-56 overflow-y-auto p-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-xs space-y-3 font-sans select-text">
+            {/* Version 1.5.3 */}
+            <div>
+              <div className="flex items-center justify-between font-bold text-[var(--color-accent)] pb-0.5 border-b border-[var(--color-border)]/50">
+                <span>{language === 'th' ? 'เวอร์ชัน 1.5.3' : 'Version 1.5.3'}</span>
+                {renderVersionBadge('1.5.3')}
+              </div>
+              <ul className="list-disc list-inside text-[var(--color-text-muted)] space-y-0.5 pt-1 text-[11px]">
+                {language === 'th' ? (
+                  <>
+                    <li>เชื่อมต่อบอทบนคลาวด์อัตโนมัติ 24 ชั่วโมง พร้อมแสดงเปอร์เซ็นต์ ความเร็ว ขนาดไฟล์ และเวลาคงเหลือแบบสดบน Discord</li>
+                    <li>ปุ่มควบคุมการดาวน์โหลดบน Discord สั่งหยุดชั่วคราว ดาวน์โหลดต่อ หรือยกเลิกงานได้ทันที</li>
+                    <li>ปุ่มเลือกประเภทไฟล์ MP4 (วิดีโอ) และ MP3 (เสียง) พร้อมแยกโฟลเดอร์จัดเก็บให้อัตโนมัติ</li>
+                    <li>ตัวเลือกลิงก์เพลย์ลิสต์ สามารถเลือกดาวน์โหลดเฉพาะคลิปนี้ หรือโหลดทั้งชุด เพื่อป้องกันการโหลดเพลงทั้งหมดใน YouTube Mix โดยไม่ตั้งใจ</li>
+                    <li>ปรับปรุงการดึงข้อมูลคลิปให้สมบูรณ์ก่อนบันทึก ป้องกันปัญหาไฟล์ถูกตั้งชื่อเป็นข้อความชั่วคราว</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Automatic 24/7 cloud bot connection with live progress bar, speed, size metrics, and ETA updates on Discord.</li>
+                    <li>Interactive live download controls on Discord to pause, resume, or cancel active jobs remotely.</li>
+                    <li>Format selection buttons for MP4 Video and MP3 Audio with automatic folder routing.</li>
+                    <li>Playlist options to choose between single track and full playlist downloads, preventing accidental YouTube Mix batching.</li>
+                    <li>Fixed metadata retrieval to ensure accurate filenames before writing to disk, eliminating placeholder filenames.</li>
+                  </>
+                )}
+              </ul>
+            </div>
+
             {/* Version 1.5.2 */}
             <div>
               <div className="flex items-center justify-between font-bold text-[var(--color-accent)] pb-0.5 border-b border-[var(--color-border)]/50">
