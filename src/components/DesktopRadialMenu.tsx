@@ -112,7 +112,7 @@ export const DesktopRadialMenu: React.FC<DesktopRadialMenuProps> = () => {
     const dy = y - cy;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    if (dist >= 45 && dist <= rOut + 20) {
+    if (dist >= 35) {
       const deg = (Math.atan2(dy, dx) * 180) / Math.PI; // -180 to 180
       setMouseAngle(deg);
       if (deg >= -135 && deg < -45) {
@@ -273,6 +273,22 @@ export const DesktopRadialMenu: React.FC<DesktopRadialMenuProps> = () => {
           className="transition-colors hover:stroke-[var(--color-accent)] cursor-pointer"
           onClick={handleClose}
         />
+
+        {/* Continuous Directional Indicator Bead on Rim (Smooth 360 Rotation) */}
+        {mouseAngle !== null && activeSlice && (
+          <circle
+            cx={cx + (rIn - 6) * Math.cos((mouseAngle * Math.PI) / 180)}
+            cy={cy + (rIn - 6) * Math.sin((mouseAngle * Math.PI) / 180)}
+            r="4.5"
+            fill="var(--color-accent)"
+            stroke="#000000"
+            strokeWidth="1.5"
+            className="pointer-events-none"
+            style={{
+              filter: 'drop-shadow(0 0 6px var(--color-accent))'
+            }}
+          />
+        )}
       </svg>
 
       {/* Center Hub Content: ESC / Close Vector */}
@@ -316,18 +332,6 @@ export const DesktopRadialMenu: React.FC<DesktopRadialMenuProps> = () => {
           </div>
         );
       })}
-
-      {/* Directional Center Pointer Indicator */}
-      {mouseAngle !== null && activeSlice && (
-        <div
-          style={{
-            transform: `rotate(${mouseAngle}deg)`
-          }}
-          className="absolute w-28 h-1 pointer-events-none z-10 transition-transform duration-75 origin-center"
-        >
-          <div className="w-2.5 h-2.5 bg-[var(--color-accent)] rounded-full ml-auto shadow-md" />
-        </div>
-      )}
     </div>
   );
 };
