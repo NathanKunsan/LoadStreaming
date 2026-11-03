@@ -60,11 +60,33 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
 
           {/* Changelog Scrollable Container (Pure Thai / Pure English) */}
           <div className="max-h-56 overflow-y-auto p-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-xs space-y-3 font-sans select-text">
-            {/* Version 1.4.0 */}
+            {/* Version 1.4.3 */}
             <div>
               <div className="flex items-center justify-between font-bold text-[var(--color-accent)] pb-0.5 border-b border-[var(--color-border)]/50">
-                <span>{language === 'th' ? 'เวอร์ชัน 1.4.0' : 'Version 1.4.0'}</span>
+                <span>{language === 'th' ? 'เวอร์ชัน 1.4.3' : 'Version 1.4.3'}</span>
                 <span className="text-[10px] text-green-400">{t.currentVersionBadge}</span>
+              </div>
+              <ul className="list-disc list-inside text-[var(--color-text-muted)] space-y-0.5 pt-1 text-[11px]">
+                {language === 'th' ? (
+                  <>
+                    <li>ระบบแปลงไฟล์ต่อเนื่อง (Chained Conversion) เลือกไฟล์ที่แปลงเสร็จแล้วมาแปลงต่อเป็นรูปแบบอื่นได้ทันทีทั้งแบบรายไฟล์และยกชุด</li>
+                    <li>เพิ่มระบบเลือกรูปแบบเป้าหมายเฉพาะรายไฟล์ (Per-file Format) ด้วย NeoDropdown แปลงไฟล์ในชุดเดียวกันเป็นคนละรูปแบบได้อิสระ</li>
+                    <li>เร่งความเร็วการสั่งดาวน์โหลดจากวงล้อคีย์ลัด (0ms Instant Queue) เพิ่มรายการลงคิวทันทีโดยไม่ต้องรอโหลดข้อมูล</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Chained media conversion: chain-convert completed files into another format individually or as a batch with one click.</li>
+                    <li>Per-file target format selector: configure unique output formats for individual files within the same batch using NeoDropdown.</li>
+                    <li>Instant radial menu queue dispatch: downloads enter the queue immediately at 0ms without waiting for network metadata.</li>
+                  </>
+                )}
+              </ul>
+            </div>
+
+            {/* Version 1.4.0 */}
+            <div>
+              <div className="font-bold text-[var(--color-accent)] pb-0.5 border-b border-[var(--color-border)]/50">
+                <span>{language === 'th' ? 'เวอร์ชัน 1.4.0' : 'Version 1.4.0'}</span>
               </div>
               <ul className="list-disc list-inside text-[var(--color-text-muted)] space-y-0.5 pt-1 text-[11px]">
                 {language === 'th' ? (

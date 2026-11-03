@@ -63,6 +63,7 @@ export interface DownloadJob {
   outputDir: string;
   finalFilePath?: string;
   status: JobStatus;
+  pendingMetadata?: boolean;
   progress: number; // 0 to 100
   downloadedSizeStr: string;
   totalSizeStr: string;

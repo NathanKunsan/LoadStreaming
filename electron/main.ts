@@ -559,33 +559,47 @@ ipcMain.handle('register-radial-shortcut', (_, shortcut: string) => {
 ipcMain.handle('toast-download-now', async (_, url: string) => {
   toastWindow?.hide();
   const cfg = storage.getConfig();
-  try {
-    const info = await downloader.getVideoInfo(url);
+  const isEn = cfg.language === 'en';
+  const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const initialJob: DownloadJob = {
+    id: jobId,
+    url,
+    title: isEn ? 'Retrieving media details...' : 'กำลังเชื่อมต่อและดึงข้อมูลสื่อ...',
+    thumbnail: '',
+    mediaType: 'video',
+    resolution: '1080p',
+    outputDir: downloader.resolveDestinationDir(cfg.outputDir, 'video'),
+    status: 'Waiting',
+    pendingMetadata: true,
+    progress: 0,
+    downloadedSizeStr: '0 B',
+    totalSizeStr: '--',
+    downloadSpeedStr: '--',
+    etaStr: '--',
+    createdAt: Date.now()
+  };
+  downloader.addJob(initialJob);
+
+  downloader.getVideoInfo(url).then((info) => {
     const res = info.resolutions && info.resolutions.length > 0
       ? (info.resolutions.find(r => r.height === 1080)?.label || info.resolutions[info.resolutions.length - 1].label)
       : '1080p';
-    const job: DownloadJob = {
-      id: `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      url,
+    downloader.updateJobInfo(jobId, {
       title: info.title,
       thumbnail: info.thumbnail,
-      mediaType: 'video',
       resolution: res,
-      outputDir: downloader.resolveDestinationDir(cfg.outputDir, 'video'),
-      status: 'Waiting',
-      progress: 0,
-      downloadedSizeStr: '0 B',
-      totalSizeStr: '--',
-      downloadSpeedStr: '--',
-      etaStr: '--',
-      createdAt: Date.now()
-    };
-    downloader.addJob(job);
-  } catch {
+      pendingMetadata: false
+    });
+  }).catch(() => {
+    downloader.updateJobInfo(jobId, {
+      status: 'Failed',
+      error: isEn ? 'Failed to fetch video information' : 'ไม่สามารถดึงข้อมูลวิดีโอได้',
+      pendingMetadata: false
+    });
     mainWindow?.show();
     mainWindow?.focus();
     mainWindow?.webContents.send('inspect-url', url);
-  }
+  });
 });
 
 ipcMain.handle('toast-inspect', (_, url: string) => {
@@ -637,32 +651,47 @@ ipcMain.handle('execute-radial-action', async (_, actionKey: string) => {
       }
 
       if (downloader.isPotentialVideoUrl(targetUrl)) {
+        const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        const initialJob: DownloadJob = {
+          id: jobId,
+          url: targetUrl,
+          title: isEn ? 'Retrieving media details...' : 'กำลังเชื่อมต่อและดึงข้อมูลสื่อ...',
+          thumbnail: '',
+          mediaType: 'video',
+          resolution: '1080p',
+          outputDir: downloader.resolveDestinationDir(cfg.outputDir, 'video'),
+          status: 'Waiting',
+          pendingMetadata: true,
+          progress: 0,
+          downloadedSizeStr: '0 B',
+          totalSizeStr: '--',
+          downloadSpeedStr: '--',
+          etaStr: '--',
+          createdAt: Date.now()
+        };
+        downloader.addJob(initialJob);
+
         showDesktopToastMessage(
-          isEn ? 'Starting video download in background...' : 'กำลังเริ่มดาวน์โหลดวิดีโอในพื้นหลัง...',
+          isEn ? 'Added to queue. Starting download...' : 'เพิ่มเข้าคิวแล้ว กำลังเริ่มดาวน์โหลด...',
           'info'
         );
+
         downloader.getVideoInfo(targetUrl).then((info) => {
           const res = info.resolutions && info.resolutions.length > 0
             ? (info.resolutions.find(r => r.height === 1080)?.label || info.resolutions[info.resolutions.length - 1].label)
             : '1080p';
-          const job: DownloadJob = {
-            id: `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-            url: targetUrl,
+          downloader.updateJobInfo(jobId, {
             title: info.title,
             thumbnail: info.thumbnail,
-            mediaType: 'video',
             resolution: res,
-            outputDir: downloader.resolveDestinationDir(cfg.outputDir, 'video'),
-            status: 'Waiting',
-            progress: 0,
-            downloadedSizeStr: '0 B',
-            totalSizeStr: '--',
-            downloadSpeedStr: '--',
-            etaStr: '--',
-            createdAt: Date.now()
-          };
-          downloader.addJob(job);
+            pendingMetadata: false
+          });
         }).catch(() => {
+          downloader.updateJobInfo(jobId, {
+            status: 'Failed',
+            error: isEn ? 'Failed to fetch video information' : 'ไม่สามารถดึงข้อมูลวิดีโอได้',
+            pendingMetadata: false
+          });
           showDesktopToastMessage(
             isEn ? 'Failed to fetch video information. Please check URL.' : 'ไม่สามารถดึงข้อมูลวิดีโอได้ กรุณาตรวจสอบลิงก์',
             'warning'
@@ -687,28 +716,42 @@ ipcMain.handle('execute-radial-action', async (_, actionKey: string) => {
       }
 
       if (downloader.isPotentialVideoUrl(targetUrl)) {
+        const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        const initialJob: DownloadJob = {
+          id: jobId,
+          url: targetUrl,
+          title: isEn ? 'Retrieving media details...' : 'กำลังเชื่อมต่อและดึงข้อมูลสื่อ...',
+          thumbnail: '',
+          mediaType: 'audio',
+          outputDir: downloader.resolveDestinationDir(cfg.outputDir, 'audio'),
+          status: 'Waiting',
+          pendingMetadata: true,
+          progress: 0,
+          downloadedSizeStr: '0 B',
+          totalSizeStr: '--',
+          downloadSpeedStr: '--',
+          etaStr: '--',
+          createdAt: Date.now()
+        };
+        downloader.addJob(initialJob);
+
         showDesktopToastMessage(
-          isEn ? 'Starting MP3 download in background...' : 'กำลังเริ่มดาวน์โหลดเสียง MP3 ในพื้นหลัง...',
+          isEn ? 'Added to queue. Starting MP3 download...' : 'เพิ่มเข้าคิวแล้ว กำลังเริ่มดาวน์โหลด MP3...',
           'info'
         );
+
         downloader.getVideoInfo(targetUrl).then((info) => {
-          const job: DownloadJob = {
-            id: `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-            url: targetUrl,
+          downloader.updateJobInfo(jobId, {
             title: info.title,
             thumbnail: info.thumbnail,
-            mediaType: 'audio',
-            outputDir: downloader.resolveDestinationDir(cfg.outputDir, 'audio'),
-            status: 'Waiting',
-            progress: 0,
-            downloadedSizeStr: '0 B',
-            totalSizeStr: '--',
-            downloadSpeedStr: '--',
-            etaStr: '--',
-            createdAt: Date.now()
-          };
-          downloader.addJob(job);
+            pendingMetadata: false
+          });
         }).catch(() => {
+          downloader.updateJobInfo(jobId, {
+            status: 'Failed',
+            error: isEn ? 'Failed to fetch audio information' : 'ไม่สามารถดึงข้อมูลวิดีโอได้',
+            pendingMetadata: false
+          });
           showDesktopToastMessage(
             isEn ? 'Failed to fetch audio information. Please check URL.' : 'ไม่สามารถดึงข้อมูลวิดีโอได้ กรุณาตรวจสอบลิงก์',
             'warning'

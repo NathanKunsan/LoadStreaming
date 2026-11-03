@@ -116,7 +116,7 @@ export const QueueSection: React.FC<QueueSectionProps> = ({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-[var(--color-text-muted)]">
+                <div className={`w-full h-full flex items-center justify-center text-[var(--color-text-muted)] ${job.pendingMetadata ? 'animate-pulse' : ''}`}>
                   {job.mediaType === 'video' ? <Video className="w-5 h-5" /> : <Music className="w-5 h-5" />}
                 </div>
               )}
@@ -129,7 +129,10 @@ export const QueueSection: React.FC<QueueSectionProps> = ({
             {/* Title & Metadata */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
-                <h4 className="text-xs font-bold truncate text-[var(--color-text-main)]" title={job.title}>
+                <h4
+                  className={`text-xs font-bold truncate text-[var(--color-text-main)] ${job.pendingMetadata ? 'animate-pulse opacity-75' : ''}`}
+                  title={job.title}
+                >
                   {job.title}
                 </h4>
                 {getStatusBadge(job)}

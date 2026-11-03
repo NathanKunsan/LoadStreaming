@@ -399,6 +399,16 @@ export class DownloadEngine {
     this.processQueue();
   }
 
+  public updateJobInfo(jobId: string, updates: Partial<DownloadJob>) {
+    const job = this.queue.find(j => j.id === jobId);
+    if (job) {
+      Object.assign(job, updates);
+      this.emitUpdate(job);
+      this.saveQueue();
+      this.processQueue();
+    }
+  }
+
   public pauseJob(jobId: string) {
     const active = this.activeJobs.get(jobId);
     if (active) {
@@ -528,7 +538,7 @@ export class DownloadEngine {
       return;
     }
 
-    const nextJob = this.queue.find(j => j.status === 'Waiting');
+    const nextJob = this.queue.find(j => j.status === 'Waiting' && !j.pendingMetadata);
     if (!nextJob) {
       return;
     }

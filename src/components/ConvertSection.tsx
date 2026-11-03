@@ -11,10 +11,12 @@ import {
   RefreshCw, 
   UploadCloud,
   Plus,
-  Trash2
+  Trash2,
+  Repeat
 } from 'lucide-react';
 import { translations, Language } from '../locales/translations';
 import { ConversionJob, AudioFormat, VideoFormat, SubtitleFormat, TargetCategory, TargetFormat } from '../../electron/types';
+import { NeoDropdown, NeoDropdownOption } from './NeoDropdown';
 
 export interface SelectedMediaFile {
   id: string;
@@ -25,6 +27,8 @@ export interface SelectedMediaFile {
   progress: number;
   outputPath?: string;
   error?: string;
+  customTargetFormat?: TargetFormat;
+  customCategory?: TargetCategory;
 }
 
 interface ConvertSectionProps {
@@ -192,6 +196,105 @@ export const ConvertSection: React.FC<ConvertSectionProps> = ({
     setCompletedJobsCount(0);
   };
 
+  const handleFileFormatChange = (fileId: string, fmt: TargetFormat) => {
+    setSelectedFiles(prev => prev.map(f => {
+      if (f.id === fileId) {
+        const cat: TargetCategory = AUDIO_FORMATS.includes(fmt as AudioFormat)
+          ? 'audio'
+          : VIDEO_FORMATS.includes(fmt as VideoFormat)
+          ? 'video'
+          : 'subtitle';
+        return { ...f, customTargetFormat: fmt, customCategory: cat };
+      }
+      return f;
+    }));
+  };
+
+  const handleChainConvertSingle = (file: SelectedMediaFile) => {
+    if (!file.outputPath) return;
+    const outPath = file.outputPath;
+    const outName = outPath.split(/[/\\]/).pop() || 'converted_file';
+    const isSub = isSubtitleFile(outName);
+    const isAudio = isAudioFile(outName);
+    const detectedCategory: TargetCategory = isSub ? 'subtitle' : isAudio ? 'audio' : 'video';
+
+    const newFile: SelectedMediaFile = {
+      id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      filePath: outPath,
+      fileName: outName,
+      fileSize: file.fileSize,
+      status: 'waiting',
+      progress: 0
+    };
+
+    setSelectedFiles(prev => [...prev, newFile]);
+    setCategory(detectedCategory);
+
+    if (detectedCategory === 'audio' && !AUDIO_FORMATS.includes(targetFormat as AudioFormat)) {
+      setTargetFormat('mp3');
+    } else if (detectedCategory === 'video' && !VIDEO_FORMATS.includes(targetFormat as VideoFormat)) {
+      setTargetFormat('mp4');
+    } else if (detectedCategory === 'subtitle' && !SUBTITLE_FORMATS.includes(targetFormat as SubtitleFormat)) {
+      setTargetFormat('srt');
+    }
+  };
+
+  const handleChainConvertAll = () => {
+    const completedOutputs = selectedFiles.filter(f => f.status === 'completed' && f.outputPath);
+    if (completedOutputs.length === 0) return;
+
+    const newItems: SelectedMediaFile[] = completedOutputs.map((f, idx) => {
+      const outPath = f.outputPath!;
+      const outName = outPath.split(/[/\\]/).pop() || `converted_${idx}`;
+      return {
+        id: `file_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
+        filePath: outPath,
+        fileName: outName,
+        fileSize: f.fileSize,
+        status: 'waiting',
+        progress: 0
+      };
+    });
+
+    setSelectedFiles(newItems);
+    setCompletedJobsCount(0);
+
+    const allSub = newItems.every(f => isSubtitleFile(f.fileName));
+    const allAudio = newItems.every(f => isAudioFile(f.fileName));
+    if (allSub) {
+      setCategory('subtitle');
+      setTargetFormat('srt');
+    } else if (allAudio) {
+      setCategory('audio');
+      setTargetFormat('mp3');
+    }
+  };
+
+  const getFileFormatOptions = (fileName: string): NeoDropdownOption<TargetFormat>[] => {
+    if (isSubtitleFile(fileName)) {
+      return SUBTITLE_FORMATS.map(f => ({
+        value: f,
+        label: `.${f.toUpperCase()}`
+      }));
+    }
+    if (isAudioFile(fileName)) {
+      return AUDIO_FORMATS.map(f => ({
+        value: f,
+        label: `.${f.toUpperCase()}`
+      }));
+    }
+    return [
+      ...VIDEO_FORMATS.map(f => ({
+        value: f,
+        label: `.${f.toUpperCase()} (${language === 'th' ? 'วิดีโอ' : 'Video'})`
+      })),
+      ...AUDIO_FORMATS.map(f => ({
+        value: f,
+        label: `.${f.toUpperCase()} (${language === 'th' ? 'เสียง' : 'Audio'})`
+      }))
+    ];
+  };
+
   // Start sequential batch conversion
   const handleStartBatchConversion = async () => {
     if (selectedFiles.length === 0 || !window.electronAPI || isConverting) return;
@@ -224,13 +327,22 @@ export const ConvertSection: React.FC<ConvertSectionProps> = ({
       const jobId = `conv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
       activeJobIdRef.current = jobId;
 
+      const fileTargetFmt = file.customTargetFormat || targetFormat;
+      const fileTargetCat = file.customCategory || (
+        AUDIO_FORMATS.includes(fileTargetFmt as AudioFormat)
+          ? 'audio'
+          : VIDEO_FORMATS.includes(fileTargetFmt as VideoFormat)
+          ? 'video'
+          : 'subtitle'
+      );
+
       const newJob: ConversionJob = {
         id: jobId,
         sourcePath: file.filePath,
         sourceName: file.fileName,
         sourceSizeStr: formatBytes(file.fileSize),
-        targetFormat,
-        targetCategory: category,
+        targetFormat: fileTargetFmt,
+        targetCategory: fileTargetCat,
         outputDir: convertOutputFolder,
         status: 'Waiting',
         progress: 0,
@@ -439,8 +551,26 @@ export const ConvertSection: React.FC<ConvertSectionProps> = ({
                         </div>
                       </div>
 
-                      {/* Right Status / Remove */}
+                      {/* Right Status / Format Selector / Actions */}
                       <div className="flex items-center space-x-2 shrink-0">
+                        {/* Per-file target format selector */}
+                        {file.status !== 'completed' && file.status !== 'converting' ? (
+                          <div className="w-28 sm:w-32 shrink-0">
+                            <NeoDropdown<TargetFormat>
+                              value={file.customTargetFormat || targetFormat}
+                              onChange={(val) => handleFileFormatChange(file.id, val)}
+                              options={getFileFormatOptions(file.fileName)}
+                              disabled={isConverting}
+                              size="sm"
+                              align="right"
+                            />
+                          </div>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-accent)]">
+                            .{(file.customTargetFormat || targetFormat).toUpperCase()}
+                          </span>
+                        )}
+
                         {file.status === 'completed' ? (
                           <div className="flex items-center space-x-1.5">
                             <span className="flex items-center text-green-400 space-x-1 text-[11px] font-bold">
@@ -448,14 +578,25 @@ export const ConvertSection: React.FC<ConvertSectionProps> = ({
                               <span>{t.convertFileItemDone}</span>
                             </span>
                             {file.outputPath && (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenFileLocation(file.outputPath)}
-                                className="pencil-button-secondary p-1 text-[10px] cursor-pointer"
-                                title={t.openFolderBtn}
-                              >
-                                <FolderOpen className="w-3 h-3" />
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleChainConvertSingle(file)}
+                                  className="pencil-button-secondary px-2 py-0.5 text-[10px] font-bold flex items-center space-x-1 cursor-pointer"
+                                  title={t.chainConvertTooltip}
+                                >
+                                  <Repeat className="w-3 h-3 text-[var(--color-accent)]" />
+                                  <span>{t.chainConvertBtn}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenFileLocation(file.outputPath)}
+                                  className="pencil-button-secondary p-1 text-[10px] cursor-pointer"
+                                  title={t.openFolderBtn}
+                                >
+                                  <FolderOpen className="w-3 h-3" />
+                                </button>
+                              </>
                             )}
                           </div>
                         ) : file.status === 'converting' ? (
@@ -646,14 +787,25 @@ export const ConvertSection: React.FC<ConvertSectionProps> = ({
                 <span>{t.cancelBtn}</span>
               </button>
             ) : allCompleted ? (
-              <button
-                type="button"
-                onClick={() => handleOpenFileLocation(convertedTargetDir)}
-                className="pencil-button px-5 h-9 flex items-center space-x-2 text-xs font-bold cursor-pointer"
-              >
-                <FolderOpen className="w-3.5 h-3.5" />
-                <span>{t.openFolderBtn}</span>
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={handleChainConvertAll}
+                  className="pencil-button-secondary px-3.5 h-9 flex items-center space-x-1.5 text-xs font-bold cursor-pointer"
+                  title={t.chainConvertAllTooltip}
+                >
+                  <Repeat className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                  <span>{t.chainConvertAllBtn}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenFileLocation(convertedTargetDir)}
+                  className="pencil-button px-5 h-9 flex items-center space-x-2 text-xs font-bold cursor-pointer"
+                >
+                  <FolderOpen className="w-3.5 h-3.5" />
+                  <span>{t.openFolderBtn}</span>
+                </button>
+              </div>
             ) : (
               <button
                 type="button"
