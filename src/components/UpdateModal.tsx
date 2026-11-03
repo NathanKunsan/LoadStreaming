@@ -69,19 +69,19 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               <ul className="list-disc list-inside text-[var(--color-text-muted)] space-y-0.5 pt-1 text-[11px]">
                 {language === 'th' ? (
                   <>
-                    <li>ตัวติดตั้งโปรแกรม (Installer) จะต่อท้ายโฟลเดอร์ \LoadStreamingProgram ให้อัตโนมัติเสมอเมื่อเลือกเปลี่ยนไดรฟ์หรือโฟลเดอร์</li>
-                    <li>ตัวถอนการติดตั้ง (Uninstaller) เพิ่มกล่องข้อความถามยืนยันเลือกลบหรือเก็บโฟลเดอร์ดาวน์โหลด (LoadStreaming) และไฟล์ข้างใน</li>
-                    <li>ระบบแปลงไฟล์ต่อเนื่อง (Chained Conversion) เลือกไฟล์ที่แปลงเสร็จแล้วมาแปลงต่อเป็นรูปแบบอื่นได้ทันทีทั้งแบบรายไฟล์และยกชุด</li>
-                    <li>เพิ่มระบบเลือกรูปแบบเป้าหมายเฉพาะรายไฟล์ (Per-file Format) ด้วย NeoDropdown แปลงไฟล์ในชุดเดียวกันเป็นคนละรูปแบบได้อิสระ</li>
-                    <li>เร่งความเร็วการสั่งดาวน์โหลดจากวงล้อคีย์ลัด (0ms Instant Queue) เพิ่มรายการลงคิวทันทีโดยไม่ต้องรอโหลดข้อมูล</li>
+                    <li>ตัวติดตั้งจะเติมชื่อโฟลเดอร์สำหรับลงโปรแกรมต่อท้ายให้อัตโนมัติเสมอเมื่อเลือกเปลี่ยนไดรฟ์หรือโฟลเดอร์</li>
+                    <li>ตัวถอนการติดตั้งเพิ่มคำถามยืนยัน เพื่อให้ผู้ใช้เลือกว่าจะลบโฟลเดอร์เก็บไฟล์ดาวน์โหลดด้วยหรือไม่ หรือจะเก็บรักษาไฟล์ไว้</li>
+                    <li>สามารถเลือกนำไฟล์ที่เพิ่งแปลงเสร็จมาตั้งต้นเพื่อแปลงเป็นรูปแบบอื่นต่อได้ทันที ทั้งแบบรายไฟล์และทั้งชุด</li>
+                    <li>สามารถเลือกรูปแบบไฟล์ปลายทางแยกเฉพาะสำหรับแต่ละไฟล์ในรายการเดียวกันได้อย่างอิสระ</li>
+                    <li>เพิ่มความเร็วในการสั่งดาวน์โหลดจากวงล้อคีย์ลัด โดยรายการจะเข้าสู่คิวทันทีโดยไม่ต้องรอโหลดข้อมูล</li>
                   </>
                 ) : (
                   <>
-                    <li>Installer now automatically appends \LoadStreamingProgram when browsing or selecting a destination folder.</li>
-                    <li>Uninstaller now prompts user with confirmation whether to delete or keep the downloaded media folder (LoadStreaming).</li>
-                    <li>Chained media conversion: chain-convert completed files into another format individually or as a batch with one click.</li>
-                    <li>Per-file target format selector: configure unique output formats for individual files within the same batch using NeoDropdown.</li>
-                    <li>Instant radial menu queue dispatch: downloads enter the queue immediately at 0ms without waiting for network metadata.</li>
+                    <li>Installer now automatically appends the application folder when changing drives or selecting a destination directory.</li>
+                    <li>Uninstaller now asks whether to also delete the downloaded media folder or keep your saved files.</li>
+                    <li>Added chained media conversion: easily continue converting completed files into other formats individually or in batch.</li>
+                    <li>Per-file target format selector: choose different output formats for individual files within the same batch.</li>
+                    <li>Instant radial menu queue dispatch: downloads enter the queue immediately without delay.</li>
                   </>
                 )}
               </ul>
@@ -95,19 +95,19 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               <ul className="list-disc list-inside text-[var(--color-text-muted)] space-y-0.5 pt-1 text-[11px]">
                 {language === 'th' ? (
                   <>
-                    <li>ระบบติดแท็กและจัดระเบียบโฟลเดอร์อัจฉริยะ แนะนำชื่อตอนและหมวดภาษา พร้อมให้ผู้ใช้เพิ่ม/แก้ไขแท็กและเลือกแยกโฟลเดอร์ได้เอง</li>
-                    <li>ระบบแปลงคำบรรยาย 10 รูปแบบสากล (.srt, .vtt, .txt, .lrc, .ass, .json, .csv, .sbv, .md, .tsv) ในแท็บแปลงไฟล์</li>
-                    <li>ระบบตรวจจับคลิปบอร์ดอัตโนมัติ แจ้งเตือนค้างไว้เพื่อดาวน์โหลดได้ทันทีทั้งการกด Ctrl+C และคลิกขวาคัดลอกลิงก์</li>
-                    <li>ระบบวงล้อคีย์ลัดสั่งการด่วน (Quick Radial Menu) กดคีย์ลัดสั่งงานได้ทันใจ ปรับแต่งปุ่มและคำสั่งได้อิสระ ไม่ทำให้เครื่องหน่วง</li>
-                    <li>รองรับการดึงวิดีโอทั่วไปและสตรีมมิ่ง m3u8 พร้อมสร้างโฟลเดอร์ Converted อัตโนมัติเมื่อติดตั้ง</li>
+                    <li>ระบบแนะนำแท็กและเลือกแยกโฟลเดอร์จัดเก็บอัตโนมัติตามชื่อตอนหรือหมวดหมู่ พร้อมให้สร้างหรือแก้ไขแท็กเองได้</li>
+                    <li>รองรับการแปลงไฟล์คำบรรยายและข้อความรวม 10 รูปแบบในแท็บแปลงไฟล์</li>
+                    <li>ตรวจจับลิงก์จากคลิปบอร์ดอัตโนมัติ พร้อมแจ้งเตือนให้กดดาวน์โหลดได้ทันที</li>
+                    <li>วงล้อสั่งการด่วนด้วยคีย์ลัด เรียกใช้งานได้ทันใจ ปรับแต่งปุ่มและคำสั่งได้อิสระ ไม่กินทรัพยากรเครื่อง</li>
+                    <li>รองรับการดึงวิดีโอทั่วไปและถ่ายทอดสด พร้อมจัดเตรียมโฟลเดอร์สำหรับไฟล์แปลงให้อัตโนมัติ</li>
                   </>
                 ) : (
                   <>
-                    <li>Smart tagging & folder organization: auto-detects series/language with custom tag creation and folder routing.</li>
-                    <li>10 practical subtitle & transcript conversion formats (.srt, .vtt, .txt, .lrc, .ass, .json, .csv, .sbv, .md, .tsv).</li>
-                    <li>Clipboard link monitor with persistent notification for both Ctrl+C and right-click copy.</li>
-                    <li>Quick Radial Menu overlay with configurable global hotkey and action slices, optimized for 0% CPU impact.</li>
-                    <li>Generic video & m3u8 stream support, plus automatic Converted directory creation during install.</li>
+                    <li>Smart tagging and folder routing based on video series or category with custom tag editing.</li>
+                    <li>Supports 10 practical subtitle and transcript conversion formats in media converter.</li>
+                    <li>Automatic clipboard link detection with instant download notification.</li>
+                    <li>Quick radial hotkey menu overlay with customizable action slices and zero performance overhead.</li>
+                    <li>Supports generic videos and live streams with automatic converted directory preparation.</li>
                   </>
                 )}
               </ul>
@@ -143,8 +143,8 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               <ul className="list-disc list-inside text-[var(--color-text-muted)] space-y-0.5 pt-1 text-[11px]">
                 {language === 'th' ? (
                   <>
-                    <li>ปรับชื่อโฟลเดอร์ติดตั้งโปรแกรมเริ่มต้นเป็น LoadStreamingProgram ในหน้าต่างติดตั้ง เพื่อความชัดเจนและแยกออกจากโฟลเดอร์ดาวน์โหลด</li>
-                    <li>ปรับข้อความปุ่มย่อการทำงานเป็น "ย่อขนาด" (Minimize) ให้กระชับยิ่งขึ้น</li>
+                    <li>ปรับชื่อโฟลเดอร์ติดตั้งโปรแกรมเริ่มต้นในหน้าต่างติดตั้ง เพื่อความชัดเจนและแยกออกจากโฟลเดอร์ดาวน์โหลด</li>
+                    <li>ปรับข้อความปุ่มย่อการทำงานเป็น "ย่อขนาด" ให้กระชับยิ่งขึ้น</li>
                   </>
                 ) : (
                   <>
@@ -203,7 +203,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               <ul className="list-disc list-inside text-[var(--color-text-muted)] space-y-0.5 pt-1 text-[11px]">
                 {language === 'th' ? (
                   <>
-                    <li>รองรับการเลือกและแปลงไฟล์พร้อมกันหลายรายการ (Batch Conversion)</li>
+                    <li>รองรับการเลือกและแปลงไฟล์พร้อมกันหลายรายการ</li>
                     <li>เพิ่มรูปแบบไฟล์เสียงยอดนิยม MP3 ในแท็บแปลงไฟล์สื่อ</li>
                     <li>ปรับปรุงระบบตรวจสอบและติดตั้งการอัปเดตแบบอัตโนมัติ</li>
                   </>

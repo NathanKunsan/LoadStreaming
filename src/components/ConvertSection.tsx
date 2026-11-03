@@ -286,11 +286,13 @@ export const ConvertSection: React.FC<ConvertSectionProps> = ({
     return [
       ...VIDEO_FORMATS.map(f => ({
         value: f,
-        label: `.${f.toUpperCase()} (${language === 'th' ? 'วิดีโอ' : 'Video'})`
+        label: `.${f.toUpperCase()}`,
+        sublabel: language === 'th' ? 'วิดีโอ' : 'Video'
       })),
       ...AUDIO_FORMATS.map(f => ({
         value: f,
-        label: `.${f.toUpperCase()} (${language === 'th' ? 'เสียง' : 'Audio'})`
+        label: `.${f.toUpperCase()}`,
+        sublabel: language === 'th' ? 'เสียง' : 'Audio'
       }))
     ];
   };
