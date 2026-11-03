@@ -10,8 +10,6 @@ import { UpdateModal } from './components/UpdateModal';
 import { ToastNotification } from './components/ToastNotification';
 import { CloseConfirmModal } from './components/CloseConfirmModal';
 import { PlaylistModal } from './components/PlaylistModal';
-import { ClipboardToast } from './components/ClipboardToast';
-import { RadialMenu } from './components/RadialMenu';
 import { SettingsModal } from './components/SettingsModal';
 import { DownloadJob, HistoryItem, AppConfig, UpdateInfo, MediaType, PlaylistInfo, PlaylistItem, TimeRange } from '../electron/types';
 import { translations } from './locales/translations';
@@ -62,12 +60,10 @@ export const App: React.FC = () => {
     suggestedName: string;
   } | null>(null);
 
-  // Playlist, Settings, Radial Menu & Clipboard state (v1.4.0)
+  // Playlist, Settings & Modal state
   const [activePlaylist, setActivePlaylist] = useState<PlaylistInfo | null>(null);
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isRadialOpen, setIsRadialOpen] = useState(false);
-  const [detectedClipboardUrl, setDetectedClipboardUrl] = useState<string | null>(null);
 
   const t = translations[config.language];
 
@@ -117,12 +113,13 @@ export const App: React.FC = () => {
         setIsCloseModalOpen(true);
       });
 
-      const unsubClip = window.electronAPI.onClipboardUrlDetected?.((url) => {
-        setDetectedClipboardUrl(url);
+      const unsubInspect = window.electronAPI.onInspectUrl?.((url) => {
+        setMainSection('download');
+        setDroppedUrl(url);
       });
 
-      const unsubRadial = window.electronAPI.onOpenRadialMenu?.(() => {
-        setIsRadialOpen((prev) => !prev);
+      const unsubSwitchTab = window.electronAPI.onSwitchTab?.((tab) => {
+        setMainSection(tab);
       });
 
       return () => {
@@ -130,8 +127,8 @@ export const App: React.FC = () => {
         unsubHist();
         unsubUpdate();
         if (unsubClose) unsubClose();
-        if (unsubClip) unsubClip();
-        if (unsubRadial) unsubRadial();
+        if (unsubInspect) unsubInspect();
+        if (unsubSwitchTab) unsubSwitchTab();
       };
     }
   }, []);
@@ -366,45 +363,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // Radial Menu Action Execution
-  const handleRadialAction = (actionKey: string) => {
-    setIsRadialOpen(false);
-    switch (actionKey) {
-      case 'actDownloadVideo':
-        setMainSection('download');
-        break;
-      case 'actDownloadAudio':
-        setMainSection('download');
-        break;
-      case 'actOpenFolder':
-        if (window.electronAPI) {
-          window.electronAPI.openFileLocation(config.outputDir);
-        }
-        break;
-      case 'actOpenConvert':
-        setMainSection('convert');
-        break;
-      case 'actToggleApp':
-        window.focus();
-        break;
-      default:
-        break;
-    }
-  };
-
-  // Clipboard Toast Handlers
-  const handleClipboardDownloadNow = (clipUrl: string) => {
-    setDetectedClipboardUrl(null);
-    setMainSection('download');
-    setDroppedUrl(clipUrl);
-  };
-
-  const handleClipboardInspect = (clipUrl: string) => {
-    setDetectedClipboardUrl(null);
-    setMainSection('download');
-    setDroppedUrl(clipUrl);
-  };
-
   // Minimize to tray and Quit app handlers
   const handleMinimizeToTray = () => {
     setIsCloseModalOpen(false);
@@ -616,26 +574,6 @@ export const App: React.FC = () => {
         onMinimizeToTray={handleMinimizeToTray}
         onQuitApp={handleQuitApp}
         onCancel={() => setIsCloseModalOpen(false)}
-      />
-
-      {/* Persistent Clipboard Copy Toast (v1.4.0) */}
-      {detectedClipboardUrl && (
-        <ClipboardToast
-          language={config.language}
-          url={detectedClipboardUrl}
-          onDownloadNow={handleClipboardDownloadNow}
-          onInspect={handleClipboardInspect}
-          onDismiss={() => setDetectedClipboardUrl(null)}
-        />
-      )}
-
-      {/* Quick Radial Menu Overlay (v1.4.0) */}
-      <RadialMenu
-        language={config.language}
-        isOpen={isRadialOpen}
-        onClose={() => setIsRadialOpen(false)}
-        actionsConfig={config.radialActions}
-        onAction={handleRadialAction}
       />
 
       {/* Settings Modal (v1.4.0) */}

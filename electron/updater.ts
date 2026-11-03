@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 import { UpdateInfo } from './types';
 
 export class UpdateManager {
-  private updateServerUrl: string = 'https://api.github.com/repos/LoadStreaming/LoadStreaming/releases/latest';
+  private updateServerUrl: string = 'https://api.github.com/repos/NathanKunsan/LoadStreaming/releases/latest';
   private tempInstallerPath: string;
 
   constructor() {

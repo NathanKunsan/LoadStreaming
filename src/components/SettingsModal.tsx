@@ -82,7 +82,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="pencil-box max-w-lg w-full p-5 bg-[var(--color-surface)] border-2 border-[var(--color-border)] text-[var(--color-text-main)] space-y-4 shadow-2xl">
+      <div className="pencil-box max-w-xl w-full p-5 bg-[var(--color-surface)] border-2 border-[var(--color-border)] text-[var(--color-text-main)] space-y-4 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between pb-2 border-b border-[var(--color-border)]">
           <div className="flex items-center space-x-2">
@@ -165,54 +165,66 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
 
-                {/* Slices config using NeoDropdown */}
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <div>
-                    <label className="block text-[10px] font-bold text-[var(--color-text-muted)] mb-1">
-                      {t.radialActionNorth}
+                {/* Slices config using NeoDropdown in full-width rows */}
+                <div className="space-y-2 pt-1">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 bg-[var(--color-surface)] border border-[var(--color-border)] rounded">
+                    <label className="text-xs font-bold text-[var(--color-text-main)] w-36 shrink-0 flex items-center space-x-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[var(--color-accent)] inline-block"></span>
+                      <span>{t.radialActionNorth}</span>
                     </label>
-                    <NeoDropdown
-                      value={northAct}
-                      onChange={(val) => setNorthAct(val)}
-                      options={actionOptions}
-                      size="sm"
-                    />
+                    <div className="flex-1 w-full min-w-0">
+                      <NeoDropdown
+                        value={northAct}
+                        onChange={(val) => setNorthAct(val)}
+                        options={actionOptions}
+                        size="sm"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] font-bold text-[var(--color-text-muted)] mb-1">
-                      {t.radialActionEast}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 bg-[var(--color-surface)] border border-[var(--color-border)] rounded">
+                    <label className="text-xs font-bold text-[var(--color-text-main)] w-36 shrink-0 flex items-center space-x-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[var(--color-accent)] inline-block"></span>
+                      <span>{t.radialActionEast}</span>
                     </label>
-                    <NeoDropdown
-                      value={eastAct}
-                      onChange={(val) => setEastAct(val)}
-                      options={actionOptions}
-                      size="sm"
-                    />
+                    <div className="flex-1 w-full min-w-0">
+                      <NeoDropdown
+                        value={eastAct}
+                        onChange={(val) => setEastAct(val)}
+                        options={actionOptions}
+                        size="sm"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] font-bold text-[var(--color-text-muted)] mb-1">
-                      {t.radialActionSouth}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 bg-[var(--color-surface)] border border-[var(--color-border)] rounded">
+                    <label className="text-xs font-bold text-[var(--color-text-main)] w-36 shrink-0 flex items-center space-x-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[var(--color-accent)] inline-block"></span>
+                      <span>{t.radialActionSouth}</span>
                     </label>
-                    <NeoDropdown
-                      value={southAct}
-                      onChange={(val) => setSouthAct(val)}
-                      options={actionOptions}
-                      size="sm"
-                    />
+                    <div className="flex-1 w-full min-w-0">
+                      <NeoDropdown
+                        value={southAct}
+                        onChange={(val) => setSouthAct(val)}
+                        options={actionOptions}
+                        size="sm"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] font-bold text-[var(--color-text-muted)] mb-1">
-                      {t.radialActionWest}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 bg-[var(--color-surface)] border border-[var(--color-border)] rounded">
+                    <label className="text-xs font-bold text-[var(--color-text-main)] w-36 shrink-0 flex items-center space-x-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[var(--color-accent)] inline-block"></span>
+                      <span>{t.radialActionWest}</span>
                     </label>
-                    <NeoDropdown
-                      value={westAct}
-                      onChange={(val) => setWestAct(val)}
-                      options={actionOptions}
-                      size="sm"
-                    />
+                    <div className="flex-1 w-full min-w-0">
+                      <NeoDropdown
+                        value={westAct}
+                        onChange={(val) => setWestAct(val)}
+                        options={actionOptions}
+                        size="sm"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

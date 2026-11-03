@@ -51,6 +51,13 @@ export const electronAPI = {
   checkForUpdates: (): Promise<UpdateInfo> => ipcRenderer.invoke('check-for-updates'),
   downloadAndApplyUpdate: (downloadUrl: string): Promise<boolean> => ipcRenderer.invoke('download-and-apply-update', downloadUrl),
 
+  // Desktop Floating Toast & Radial Menu IPC (v1.4.0)
+  toastDownloadNow: (url: string): Promise<void> => ipcRenderer.invoke('toast-download-now', url),
+  toastInspect: (url: string): Promise<void> => ipcRenderer.invoke('toast-inspect', url),
+  toastDismiss: (): Promise<void> => ipcRenderer.invoke('toast-dismiss'),
+  executeRadialAction: (actionKey: string): Promise<void> => ipcRenderer.invoke('execute-radial-action', actionKey),
+  closeRadialMenu: (): Promise<void> => ipcRenderer.invoke('close-radial-menu'),
+
   // Listeners
   onJobUpdated: (callback: (job: DownloadJob) => void) => {
     const subscription = (_: any, job: DownloadJob) => callback(job);
@@ -71,6 +78,26 @@ export const electronAPI = {
     const subscription = (_: any, percent: number) => callback(percent);
     ipcRenderer.on('update-progress', subscription);
     return () => { ipcRenderer.removeListener('update-progress', subscription); };
+  },
+  onShowToast: (callback: (data: { url: string }) => void) => {
+    const subscription = (_: any, data: { url: string }) => callback(data);
+    ipcRenderer.on('show-toast', subscription);
+    return () => { ipcRenderer.removeListener('show-toast', subscription); };
+  },
+  onOpenRadial: (callback: (data: { config: AppConfig }) => void) => {
+    const subscription = (_: any, data: { config: AppConfig }) => callback(data);
+    ipcRenderer.on('open-radial', subscription);
+    return () => { ipcRenderer.removeListener('open-radial', subscription); };
+  },
+  onInspectUrl: (callback: (url: string) => void) => {
+    const subscription = (_: any, url: string) => callback(url);
+    ipcRenderer.on('inspect-url', subscription);
+    return () => { ipcRenderer.removeListener('inspect-url', subscription); };
+  },
+  onSwitchTab: (callback: (tab: 'download' | 'convert') => void) => {
+    const subscription = (_: any, tab: 'download' | 'convert') => callback(tab);
+    ipcRenderer.on('switch-tab', subscription);
+    return () => { ipcRenderer.removeListener('switch-tab', subscription); };
   },
   onClipboardUrlDetected: (callback: (url: string) => void) => {
     const subscription = (_: any, url: string) => callback(url);

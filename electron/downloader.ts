@@ -135,6 +135,39 @@ export class DownloadEngine {
     return playlistRegex.test(trimmed);
   }
 
+  public isPotentialVideoUrl(rawUrl: string): boolean {
+    if (!rawUrl || typeof rawUrl !== 'string') return false;
+    const trimmed = rawUrl.trim();
+    if (!/^https?:\/\//i.test(trimmed)) return false;
+
+    // Reject non-media platforms
+    const excludeRegex = /^(https?:\/\/)?(www\.)?(github\.com|gitlab\.com|google\.com|wikipedia\.org|stackoverflow\.com|medium\.com)/i;
+    if (excludeRegex.test(trimmed)) {
+      const hasMediaExt = /\.(mp4|webm|mkv|m3u8|mpd|mov|avi)(\?.*)?$/i.test(trimmed);
+      if (!hasMediaExt) return false;
+    }
+
+    // Video platforms
+    const videoPlatforms = [
+      'youtube.com', 'youtu.be', 'tiktok.com', 'facebook.com', 'fb.watch',
+      'twitter.com', 'x.com', 'instagram.com', 'vimeo.com', 'dailymotion.com',
+      'bilibili.com', 'twitch.tv', 'reddit.com', 'soundcloud.com', 'streamable.com'
+    ];
+    if (videoPlatforms.some(d => trimmed.toLowerCase().includes(d))) {
+      if (/shorts/i.test(trimmed)) return false;
+      return true;
+    }
+
+    // Direct video stream / file extensions
+    const directMediaRegex = /\.(mp4|m3u8|mpd|webm|mkv|mov|avi|flv|m4v)(\?.*)?$/i;
+    if (directMediaRegex.test(trimmed)) return true;
+
+    // Common streaming paths
+    if (/\/(watch|video|embed|stream|playback)\//i.test(trimmed)) return true;
+
+    return false;
+  }
+
   public validateUrl(rawUrl: string): { valid: boolean; error?: string; isPlaylist?: boolean } {
     if (!rawUrl || typeof rawUrl !== 'string') {
       return { valid: false, error: 'INVALID_URL' };

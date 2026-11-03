@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage, clipboard, globalShortcut, session } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage, clipboard, globalShortcut, session, screen } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { DownloadEngine } from './downloader';
@@ -11,6 +11,8 @@ import { DownloadJob, AppConfig, MediaType, ConversionJob } from './types';
 app.setAppUserModelId('com.loadstreaming.app');
 
 let mainWindow: BrowserWindow | null = null;
+let toastWindow: BrowserWindow | null = null;
+let radialWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
 const storage = new StorageManager();
@@ -100,6 +102,72 @@ function createWindow() {
   }
 }
 
+function createToastWindow() {
+  if (toastWindow && !toastWindow.isDestroyed()) return;
+  toastWindow = new BrowserWindow({
+    width: 420,
+    height: 155,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    show: false,
+    hasShadow: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+
+  if (process.env.VITE_DEV_SERVER_URL) {
+    toastWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}#toast`);
+  } else {
+    toastWindow.loadFile(path.join(__dirname, '../dist/index.html'), { hash: 'toast' });
+  }
+
+  toastWindow.on('closed', () => {
+    toastWindow = null;
+  });
+}
+
+function createRadialWindow() {
+  if (radialWindow && !radialWindow.isDestroyed()) return;
+  radialWindow = new BrowserWindow({
+    width: 380,
+    height: 380,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    show: false,
+    hasShadow: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+
+  if (process.env.VITE_DEV_SERVER_URL) {
+    radialWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}#radial`);
+  } else {
+    radialWindow.loadFile(path.join(__dirname, '../dist/index.html'), { hash: 'radial' });
+  }
+
+  radialWindow.on('blur', () => {
+    radialWindow?.hide();
+  });
+
+  radialWindow.on('closed', () => {
+    radialWindow = null;
+  });
+}
+
 function createTray() {
   if (tray) return;
 
@@ -174,9 +242,16 @@ function initClipboardMonitor() {
       const text = clipboard.readText().trim();
       if (text && text !== lastClipboardText && text.length < 500) {
         lastClipboardText = text;
-        const check = downloader.validateUrl(text);
-        if (check.valid && !check.error) {
-          mainWindow?.webContents.send('clipboard-url-detected', text);
+        if (downloader.isPotentialVideoUrl(text)) {
+          if (!toastWindow || toastWindow.isDestroyed()) {
+            createToastWindow();
+          }
+          const primaryDisplay = screen.getPrimaryDisplay();
+          const { width, height } = primaryDisplay.workAreaSize;
+          toastWindow?.setPosition(width - 435, height - 165);
+          toastWindow?.webContents.send('show-toast', { url: text });
+          toastWindow?.showInactive();
+          toastWindow?.setAlwaysOnTop(true, 'screen-saver');
         }
       }
     } catch {}
@@ -186,6 +261,8 @@ function initClipboardMonitor() {
 app.whenReady().then(() => {
   createWindow();
   createTray();
+  createToastWindow();
+  createRadialWindow();
   initClipboardMonitor();
   const cfg = storage.getConfig();
   if (cfg.enableRadialMenu !== false) {
@@ -421,13 +498,17 @@ function registerRadialShortcut(shortcut: string) {
   try {
     const keyToRegister = shortcut || 'Alt+Q';
     const ok = globalShortcut.register(keyToRegister, () => {
-      if (mainWindow) {
-        if (!mainWindow.isVisible()) {
-          mainWindow.show();
-        }
-        mainWindow.focus();
-        mainWindow.webContents.send('open-radial-menu');
+      const cfg = storage.getConfig();
+      if (cfg.enableRadialMenu === false) return;
+      if (!radialWindow || radialWindow.isDestroyed()) {
+        createRadialWindow();
       }
+      const cursor = screen.getCursorScreenPoint();
+      radialWindow?.setPosition(Math.round(cursor.x - 190), Math.round(cursor.y - 190));
+      radialWindow?.webContents.send('open-radial', { config: cfg });
+      radialWindow?.show();
+      radialWindow?.focus();
+      radialWindow?.setAlwaysOnTop(true, 'screen-saver');
     });
     if (ok) currentRegisteredShortcut = keyToRegister;
     return ok;
@@ -438,6 +519,146 @@ function registerRadialShortcut(shortcut: string) {
 
 ipcMain.handle('register-radial-shortcut', (_, shortcut: string) => {
   return registerRadialShortcut(shortcut);
+});
+
+// Desktop Toast IPC Handlers
+ipcMain.handle('toast-download-now', async (_, url: string) => {
+  toastWindow?.hide();
+  const cfg = storage.getConfig();
+  try {
+    const info = await downloader.getVideoInfo(url);
+    const res = info.resolutions && info.resolutions.length > 0
+      ? (info.resolutions.find(r => r.height === 1080)?.label || info.resolutions[info.resolutions.length - 1].label)
+      : '1080p';
+    const job: DownloadJob = {
+      id: `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      url,
+      title: info.title,
+      thumbnail: info.thumbnail,
+      mediaType: 'video',
+      resolution: res,
+      outputDir: downloader.resolveDestinationDir(cfg.outputDir, 'video'),
+      status: 'Waiting',
+      progress: 0,
+      downloadedSizeStr: '0 B',
+      totalSizeStr: '--',
+      downloadSpeedStr: '--',
+      etaStr: '--',
+      createdAt: Date.now()
+    };
+    downloader.addJob(job);
+  } catch {
+    mainWindow?.show();
+    mainWindow?.focus();
+    mainWindow?.webContents.send('inspect-url', url);
+  }
+});
+
+ipcMain.handle('toast-inspect', (_, url: string) => {
+  toastWindow?.hide();
+  mainWindow?.show();
+  mainWindow?.focus();
+  mainWindow?.webContents.send('inspect-url', url);
+});
+
+ipcMain.handle('toast-dismiss', () => {
+  toastWindow?.hide();
+});
+
+// Desktop Radial Menu Action Handler
+ipcMain.handle('execute-radial-action', async (_, actionKey: string) => {
+  radialWindow?.hide();
+  const cfg = storage.getConfig();
+  switch (actionKey) {
+    case 'actDownloadVideo': {
+      const clip = clipboard.readText().trim();
+      if (downloader.isPotentialVideoUrl(clip)) {
+        try {
+          const info = await downloader.getVideoInfo(clip);
+          const res = info.resolutions && info.resolutions.length > 0
+            ? (info.resolutions.find(r => r.height === 1080)?.label || info.resolutions[info.resolutions.length - 1].label)
+            : '1080p';
+          const job: DownloadJob = {
+            id: `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            url: clip,
+            title: info.title,
+            thumbnail: info.thumbnail,
+            mediaType: 'video',
+            resolution: res,
+            outputDir: downloader.resolveDestinationDir(cfg.outputDir, 'video'),
+            status: 'Waiting',
+            progress: 0,
+            downloadedSizeStr: '0 B',
+            totalSizeStr: '--',
+            downloadSpeedStr: '--',
+            etaStr: '--',
+            createdAt: Date.now()
+          };
+          downloader.addJob(job);
+        } catch {
+          mainWindow?.show();
+          mainWindow?.focus();
+          mainWindow?.webContents.send('inspect-url', clip);
+        }
+      } else {
+        mainWindow?.show();
+        mainWindow?.focus();
+      }
+      break;
+    }
+    case 'actDownloadAudio': {
+      const clip = clipboard.readText().trim();
+      if (downloader.isPotentialVideoUrl(clip)) {
+        try {
+          const info = await downloader.getVideoInfo(clip);
+          const job: DownloadJob = {
+            id: `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            url: clip,
+            title: info.title,
+            thumbnail: info.thumbnail,
+            mediaType: 'audio',
+            outputDir: downloader.resolveDestinationDir(cfg.outputDir, 'audio'),
+            status: 'Waiting',
+            progress: 0,
+            downloadedSizeStr: '0 B',
+            totalSizeStr: '--',
+            downloadSpeedStr: '--',
+            etaStr: '--',
+            createdAt: Date.now()
+          };
+          downloader.addJob(job);
+        } catch {
+          mainWindow?.show();
+          mainWindow?.focus();
+          mainWindow?.webContents.send('inspect-url', clip);
+        }
+      } else {
+        mainWindow?.show();
+        mainWindow?.focus();
+      }
+      break;
+    }
+    case 'actOpenFolder':
+      shell.openPath(cfg.outputDir);
+      break;
+    case 'actOpenConvert':
+      mainWindow?.show();
+      mainWindow?.focus();
+      mainWindow?.webContents.send('switch-tab', 'convert');
+      break;
+    case 'actToggleApp':
+      if (mainWindow?.isVisible()) {
+        mainWindow.hide();
+      } else {
+        mainWindow?.show();
+        mainWindow?.focus();
+      }
+      break;
+  }
+});
+
+ipcMain.handle('close-radial-menu', () => {
+  radialWindow?.hide();
 });
 
 ipcMain.handle('pause-download', (_, jobId: string) => {

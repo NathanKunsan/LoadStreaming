@@ -92,7 +92,7 @@ export function NeoDropdown<T extends string | number>({
             : 'bg-[var(--color-bg)] text-[var(--color-text-main)] border-2 border-[var(--color-border)] rounded hover:border-[var(--color-accent)]'
         } ${buttonClassName}`}
       >
-        <div className="flex items-center gap-1.5 truncate">
+        <div className="flex items-center gap-1.5 truncate" title={selectedOption ? selectedOption.label : placeholder}>
           {selectedOption?.icon && (
             <span className="shrink-0 text-[var(--color-accent)]">
               {selectedOption.icon}
@@ -119,8 +119,8 @@ export function NeoDropdown<T extends string | number>({
       {/* Floating Menu */}
       {isOpen && (
         <div
-          className={`absolute left-0 right-0 z-50 mt-1 ${maxHeight} overflow-y-auto bg-[var(--color-surface)] border-2 border-[var(--color-border)] rounded p-1 shadow-xl animate-in fade-in duration-100 ${dropdownClassName}`}
-          style={{ minWidth: '100%' }}
+          className={`absolute left-0 z-50 mt-1 ${maxHeight} overflow-y-auto bg-[var(--color-surface)] border-2 border-[var(--color-border)] rounded p-1 shadow-2xl animate-in fade-in duration-100 ${dropdownClassName}`}
+          style={{ minWidth: '100%', width: 'max-content', maxWidth: 'min(460px, 92vw)' }}
         >
           {options.length === 0 ? (
             <div className="py-2 px-3 text-xs text-[var(--color-text-muted)] text-center font-medium">
@@ -137,17 +137,17 @@ export function NeoDropdown<T extends string | number>({
                     onChange(opt.value);
                     setIsOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs font-semibold text-left rounded transition-colors my-0.5 cursor-pointer ${
+                  className={`w-full flex items-center justify-between gap-3 px-3 py-1.5 text-xs font-semibold text-left rounded transition-colors my-0.5 cursor-pointer ${
                     isSelected
                       ? 'bg-[var(--color-accent)] text-[var(--color-bg)] font-bold'
                       : 'text-[var(--color-text-main)] hover:bg-[var(--color-surface-hover)]'
                   }`}
                 >
-                  <div className="flex items-center gap-1.5 truncate">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     {opt.icon && (
                       <span className="shrink-0">{opt.icon}</span>
                     )}
-                    <span className="truncate">{opt.label}</span>
+                    <span>{opt.label}</span>
                     {opt.sublabel && (
                       <span className="text-[10px] opacity-75 font-normal">
                         ({opt.sublabel})
