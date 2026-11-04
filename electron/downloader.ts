@@ -26,6 +26,21 @@ export class DownloadEngine {
 
     this.ytdlpPath = path.join(this.binDir, 'yt-dlp.exe');
     this.ffmpegPath = path.join(this.binDir, 'ffmpeg.exe');
+    this.purgeOldTempFiles();
+  }
+
+  private purgeOldTempFiles() {
+    try {
+      const tempDownloadDir = path.join(app.getPath('temp'), 'LoadStreaming');
+      if (fs.existsSync(tempDownloadDir)) {
+        const files = fs.readdirSync(tempDownloadDir);
+        for (const file of files) {
+          try {
+            fs.unlinkSync(path.join(tempDownloadDir, file));
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
   }
 
   public setMainWindow(win: BrowserWindow) {
@@ -478,6 +493,8 @@ export class DownloadEngine {
       }
 
       this.cleanupTempFiles(active.job);
+      setTimeout(() => this.cleanupTempFiles(active.job), 600);
+      setTimeout(() => this.cleanupTempFiles(active.job), 1500);
       this.emitUpdate(active.job);
       this.saveQueue();
       this.processQueue();
@@ -498,6 +515,7 @@ export class DownloadEngine {
       }
 
       this.cleanupTempFiles(queued);
+      setTimeout(() => this.cleanupTempFiles(queued), 600);
       this.emitUpdate(queued);
       this.saveQueue();
       this.processQueue();
@@ -514,19 +532,49 @@ export class DownloadEngine {
     try {
       const sanitized = this.sanitizeFilename(job.title);
       const outputDir = job.outputDir;
-      if (!fs.existsSync(outputDir)) return;
+      const tempDownloadDir = path.join(app.getPath('temp'), 'LoadStreaming');
 
-      const files = fs.readdirSync(outputDir);
-      for (const file of files) {
-        if (
-          file.startsWith(sanitized) &&
-          (file.endsWith('.part') || file.endsWith('.ytdl') || file.endsWith('.temp') || file.includes('.temp.'))
-        ) {
-          try {
-            fs.unlinkSync(path.join(outputDir, file));
-          } catch (e) {}
-        }
-      }
+      const cleanFolder = (dir: string) => {
+        if (!fs.existsSync(dir)) return;
+        try {
+          const files = fs.readdirSync(dir);
+          for (const file of files) {
+            const isTempFile =
+              file.endsWith('.part') ||
+              file.endsWith('.ytdl') ||
+              file.includes('.part-Frag') ||
+              file.endsWith('.temp') ||
+              file.includes('.temp.');
+
+            if (isTempFile) {
+              const matches =
+                !sanitized ||
+                sanitized.includes('LoadStreaming') ||
+                file.startsWith(sanitized) ||
+                (sanitized.length >= 4 && file.includes(sanitized)) ||
+                dir === tempDownloadDir;
+
+              if (matches) {
+                try {
+                  fs.unlinkSync(path.join(dir, file));
+                } catch (e) {}
+              }
+            } else if (file.endsWith('.webp') || file.endsWith('.jpg') || file.endsWith('.png')) {
+              if (sanitized && (file.startsWith(sanitized) || (sanitized.length >= 4 && file.includes(sanitized)))) {
+                const targetMedia = job.mediaType === 'video' ? `${sanitized}.mp4` : `${sanitized}.mp3`;
+                if (job.status !== 'Completed' || !files.includes(targetMedia)) {
+                  try {
+                    fs.unlinkSync(path.join(dir, file));
+                  } catch (e) {}
+                }
+              }
+            }
+          }
+        } catch (e) {}
+      };
+
+      cleanFolder(outputDir);
+      cleanFolder(tempDownloadDir);
     } catch (err) {
       console.error('Error cleaning temp files:', err);
     }
@@ -569,8 +617,13 @@ export class DownloadEngine {
 
     const safeTitle = this.sanitizeFilename(titleToUse);
     const outputTemplate = isPlaceholderTitle
-      ? path.join(job.outputDir, '%(title)s.%(ext)s')
-      : path.join(job.outputDir, `${safeTitle}.%(ext)s`);
+      ? '%(title)s.%(ext)s'
+      : `${safeTitle}.%(ext)s`;
+
+    const tempDownloadDir = path.join(app.getPath('temp'), 'LoadStreaming');
+    if (!fs.existsSync(tempDownloadDir)) {
+      try { fs.mkdirSync(tempDownloadDir, { recursive: true }); } catch (e) {}
+    }
 
     // Optimized parameters: smooth output stream, efficient fragmenting without stutter
     const args: string[] = [
@@ -581,6 +634,8 @@ export class DownloadEngine {
       '--concurrent-fragments', '2',
       '--buffer-size', '64K',
       '--no-mtime',
+      '-P', `home:${job.outputDir}`,
+      '-P', `temp:${tempDownloadDir}`,
       '-o', outputTemplate
     ];
 
@@ -612,7 +667,7 @@ export class DownloadEngine {
     if (job.mediaType === 'video') {
       const height = job.resolution ? job.resolution.replace('p', '') : '1080';
       args.push(
-        '-f', `bestvideo[height<=?${height}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=?${height}]+bestaudio/best[height<=?${height}]/best`,
+        '-f', `bestvideo[height<=?${height}][format_note*!=Premium][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=?${height}][format_note*!=Premium]+bestaudio/bestvideo[height<=?${height}]+bestaudio/best[height<=?${height}]/best`,
         '--merge-output-format', 'mp4',
         '--embed-thumbnail',
         '--embed-metadata'
@@ -659,7 +714,8 @@ export class DownloadEngine {
         // Detect actual filename / destination from yt-dlp output
         const destMatch = line.match(/\[download\] Destination:\s+(.+)$/i) ||
                           line.match(/\[Merger\] Merging formats into "(.+)"/i) ||
-                          line.match(/\[ExtractAudio\] Destination:\s+(.+)$/i);
+                          line.match(/\[ExtractAudio\] Destination:\s+(.+)$/i) ||
+                          line.match(/\[MoveFiles\] Moving file ".+" to "(.+)"/i);
         if (destMatch && destMatch[1]) {
           const detectedPath = destMatch[1].trim();
           finalExpectedFile = detectedPath;
@@ -733,6 +789,7 @@ export class DownloadEngine {
         }
 
         this.notifyDownloadComplete(job);
+        this.cleanupTempFiles(job);
 
         if (this.onHistoryUpdateCallback && job.finalFilePath) {
           let sizeStr = job.totalSizeStr || 'Unknown size';
@@ -757,6 +814,8 @@ export class DownloadEngine {
       } else {
         job.status = 'Failed';
         job.error = 'Download interrupted';
+        this.cleanupTempFiles(job);
+        setTimeout(() => this.cleanupTempFiles(job), 800);
       }
 
       this.emitUpdate(job);
@@ -768,6 +827,8 @@ export class DownloadEngine {
       this.activeJobs.delete(job.id);
       job.status = 'Failed';
       job.error = err.message;
+      this.cleanupTempFiles(job);
+      setTimeout(() => this.cleanupTempFiles(job), 800);
       this.emitUpdate(job);
       this.saveQueue();
       this.processQueue();
