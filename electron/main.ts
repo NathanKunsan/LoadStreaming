@@ -134,6 +134,24 @@ function createWindow() {
     },
     (jobs: DownloadJob[]) => {
       storage.saveJobs(jobs);
+      if (discordWs && discordWs.readyState === 1) {
+        const cfg = storage.getConfig();
+        if (cfg.discordChannelId) {
+          discordWs.send(JSON.stringify({
+            type: 'QUEUE_UPDATED',
+            channelId: cfg.discordChannelId,
+            queue: jobs.map(j => ({
+              id: j.id,
+              title: j.title,
+              url: j.url,
+              status: j.status,
+              progress: Math.round(j.progress),
+              mediaType: j.mediaType,
+              resolution: j.resolution
+            }))
+          }));
+        }
+      }
     }
   );
 
@@ -344,6 +362,20 @@ function setupDiscordRemote() {
     ws.onopen = () => {
       console.log('[DiscordRemote] เชื่อมต่อกับบอทสำเร็จ ลงทะเบียนห้อง:', channelId);
       ws.send(JSON.stringify({ type: 'REGISTER', channelId }));
+      const initialQueue = downloader.getQueue();
+      ws.send(JSON.stringify({
+        type: 'QUEUE_UPDATED',
+        channelId,
+        queue: initialQueue.map(j => ({
+          id: j.id,
+          title: j.title,
+          url: j.url,
+          status: j.status,
+          progress: Math.round(j.progress),
+          mediaType: j.mediaType,
+          resolution: j.resolution
+        }))
+      }));
     };
 
     ws.onmessage = async (event: any) => {
@@ -362,6 +394,44 @@ function setupDiscordRemote() {
             downloader.resumeJob(payload.jobId);
           } else if (payload.action === 'CANCEL' && payload.jobId) {
             downloader.cancelJob(payload.jobId);
+          }
+        } else if (payload.type === 'FETCH_PLAYLIST_REQUEST') {
+          try {
+            const plInfo = await downloader.getPlaylistInfo(payload.url);
+            ws.send(JSON.stringify({
+              type: 'FETCH_PLAYLIST_RESPONSE',
+              requestId: payload.requestId,
+              channelId: payload.channelId,
+              success: true,
+              playlist: plInfo
+            }));
+          } catch (e: any) {
+            ws.send(JSON.stringify({
+              type: 'FETCH_PLAYLIST_RESPONSE',
+              requestId: payload.requestId,
+              channelId: payload.channelId,
+              success: false,
+              error: e.message || 'Failed to fetch playlist'
+            }));
+          }
+        } else if (payload.type === 'FETCH_MEDIA_INFO_REQUEST') {
+          try {
+            const mediaInfo = await downloader.getMediaInfo(payload.url);
+            ws.send(JSON.stringify({
+              type: 'FETCH_MEDIA_INFO_RESPONSE',
+              requestId: payload.requestId,
+              channelId: payload.channelId,
+              success: true,
+              mediaInfo
+            }));
+          } catch (e: any) {
+            ws.send(JSON.stringify({
+              type: 'FETCH_MEDIA_INFO_RESPONSE',
+              requestId: payload.requestId,
+              channelId: payload.channelId,
+              success: false,
+              error: e.message || 'Failed to fetch media info'
+            }));
           }
         }
       } catch (err) {
