@@ -13,6 +13,30 @@ InstallDir "C:\LoadStreamingProgram"
 
 !macro preInit
   !ifndef BUILD_UNINSTALLER
+    ; Detect if LoadStreaming is already installed on this machine
+    ; If installed, switch to 100% silent upgrade mode automatically
+    ; This ensures updates NEVER show any install wizard windows, options, or prompts in any case!
+    SetRegView 64
+    ReadRegStr $0 HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation
+    ${If} $0 == ""
+      ReadRegStr $0 HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation
+    ${EndIf}
+    ${If} $0 == ""
+      SetRegView 32
+      ReadRegStr $0 HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation
+      ${If} $0 == ""
+        ReadRegStr $0 HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation
+      ${EndIf}
+      SetRegView 64
+    ${EndIf}
+
+    ${If} $0 != ""
+    ${AndIf} ${FileExists} "$0\LoadStreaming.exe"
+      SetSilent silent
+    ${ElseIf} ${FileExists} "C:\LoadStreamingProgram\LoadStreaming.exe"
+      SetSilent silent
+    ${EndIf}
+
     SetRegView 64
     WriteRegExpandStr HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation "C:\LoadStreamingProgram"
     WriteRegExpandStr HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation "C:\LoadStreamingProgram"
