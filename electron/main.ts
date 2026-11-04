@@ -487,7 +487,16 @@ function resolveTargetResolution(preferredRes: string, availableResolutions?: { 
   return availableResolutions[0].label;
 }
 
-async function handleIncomingBotJob(jobData: { id?: string; url: string; channelId?: string; isPlaylist?: boolean; mediaType?: 'video' | 'audio'; resolution?: string }) {
+async function handleIncomingBotJob(jobData: {
+  id?: string;
+  url: string;
+  channelId?: string;
+  isPlaylist?: boolean;
+  mediaType?: 'video' | 'audio';
+  resolution?: string;
+  title?: string;
+  thumbnail?: string;
+}) {
   const cfg = storage.getConfig();
   const isEn = cfg.language === 'en';
   let url = jobData.url;
@@ -530,16 +539,17 @@ async function handleIncomingBotJob(jobData: { id?: string; url: string; channel
     }
   }
 
+  const hasTitle = !!(jobData.title && !jobData.title.startsWith('http'));
   const initialJob: DownloadJob = {
     id: jobData.id || generateJobId(),
     url,
-    title: isEn ? 'Retrieving media details...' : 'กำลังเชื่อมต่อและดึงข้อมูลสื่อ...',
-    thumbnail: '',
+    title: hasTitle ? jobData.title! : (isEn ? 'Retrieving media details...' : 'กำลังเชื่อมต่อและดึงข้อมูลสื่อ...'),
+    thumbnail: jobData.thumbnail || '',
     mediaType,
     resolution: mediaType === 'video' ? preferredRes : undefined,
     outputDir: targetDir,
     status: 'Waiting',
-    pendingMetadata: true,
+    pendingMetadata: !hasTitle,
     progress: 0,
     downloadedSizeStr: '0 B',
     totalSizeStr: '--',
@@ -550,23 +560,24 @@ async function handleIncomingBotJob(jobData: { id?: string; url: string; channel
 
   downloader.addJob(initialJob);
 
-  // Background fetch metadata before letting queue download
-  downloader.getVideoInfo(url).then((info) => {
-    const res = mediaType === 'video'
-      ? resolveTargetResolution(preferredRes, info.resolutions)
-      : undefined;
-    downloader.updateJobInfo(initialJob.id, {
-      title: info.title,
-      thumbnail: info.thumbnail,
-      resolution: res,
-      pendingMetadata: false
+  if (!hasTitle) {
+    downloader.getVideoInfo(url).then((info) => {
+      const res = mediaType === 'video'
+        ? resolveTargetResolution(preferredRes, info.resolutions)
+        : undefined;
+      downloader.updateJobInfo(initialJob.id, {
+        title: info.title,
+        thumbnail: info.thumbnail,
+        resolution: res,
+        pendingMetadata: false
+      });
+    }).catch((err) => {
+      console.error('[DiscordRemote] ดึงข้อมูลไม่สำเร็จ:', err);
+      downloader.updateJobInfo(initialJob.id, {
+        pendingMetadata: false
+      });
     });
-  }).catch((err) => {
-    console.error('[DiscordRemote] ดึงข้อมูลไม่สำเร็จ:', err);
-    downloader.updateJobInfo(initialJob.id, {
-      pendingMetadata: false
-    });
-  });
+  }
 }
 
 app.whenReady().then(() => {
