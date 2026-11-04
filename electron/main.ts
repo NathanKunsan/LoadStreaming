@@ -325,11 +325,16 @@ function initClipboardMonitor() {
 
 let discordWs: any = null;
 let discordReconnectTimer: NodeJS.Timeout | null = null;
+let discordHeartbeatTimer: NodeJS.Timeout | null = null;
 
 function setupDiscordRemote() {
   if (discordReconnectTimer) {
     clearTimeout(discordReconnectTimer);
     discordReconnectTimer = null;
+  }
+  if (discordHeartbeatTimer) {
+    clearInterval(discordHeartbeatTimer);
+    discordHeartbeatTimer = null;
   }
   if (discordWs) {
     try {
@@ -376,6 +381,16 @@ function setupDiscordRemote() {
           resolution: j.resolution
         }))
       }));
+
+      // ส่ง Heartbeat PING ทุกๆ 25 วินาที เพื่อรักษาการเชื่อมต่อและป้องกัน Render พักการทำงาน
+      if (discordHeartbeatTimer) clearInterval(discordHeartbeatTimer);
+      discordHeartbeatTimer = setInterval(() => {
+        try {
+          if (discordWs && discordWs.readyState === 1) {
+            discordWs.send(JSON.stringify({ type: 'PING' }));
+          }
+        } catch (e) {}
+      }, 25000);
     };
 
     ws.onmessage = async (event: any) => {
@@ -444,6 +459,10 @@ function setupDiscordRemote() {
     };
 
     ws.onclose = () => {
+      if (discordHeartbeatTimer) {
+        clearInterval(discordHeartbeatTimer);
+        discordHeartbeatTimer = null;
+      }
       discordWs = null;
       discordReconnectTimer = setTimeout(() => {
         setupDiscordRemote();
