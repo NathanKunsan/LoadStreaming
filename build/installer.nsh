@@ -22,6 +22,12 @@ InstallDir "C:\LoadStreamingProgram"
   !endif
 !macroend
 
+!macro customInstallMode
+  ; Always skip the "Who should this application be installed for?" dialog
+  ; This completely eliminates the per-user / all-users prompt on both install and upgrade
+  StrCpy $isForceCurrentInstall "1"
+!macroend
+
 !macro customInit
   !ifndef BUILD_UNINSTALLER
     ; Read previous installation directory from registry if available
