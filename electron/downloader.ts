@@ -596,11 +596,16 @@ export class DownloadEngine {
 
     // Subtitle downloading
     if (job.downloadSubtitle) {
-      args.push('--write-subs', '--write-auto-subs', '--sub-format', 'srt');
-      if (job.subLang) {
-        args.push('--sub-langs', job.subLang);
+      args.push('-i', '--write-subs', '--write-auto-subs', '--convert-subs', 'srt');
+      if (job.subLang === 'th') {
+        args.push('--sub-langs', 'th,th-TH');
+      } else if (job.subLang === 'en') {
+        args.push('--sub-langs', 'en,en-US,en-GB');
+      } else if (job.subLang === 'auto') {
+        args.push('--sub-langs', 'th,en');
       } else {
-        args.push('--sub-langs', 'th,en,all');
+        // Fetch Thai, English, Japanese (avoids requesting 150 auto-translated languages that triggers YouTube HTTP 429)
+        args.push('--sub-langs', 'th,en,ja');
       }
     }
 
@@ -612,6 +617,9 @@ export class DownloadEngine {
         '--embed-thumbnail',
         '--embed-metadata'
       );
+      if (job.downloadSubtitle) {
+        args.push('--embed-subs');
+      }
     } else {
       args.push(
         '-x',
