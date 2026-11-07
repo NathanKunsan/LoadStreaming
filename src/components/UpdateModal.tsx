@@ -89,15 +89,19 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                   <>
                     <li>เพิ่มโหมดเครื่องเล่นสื่อในตัวแบบสมจริง แยกเป็นสี่หมวดหมู่ ได้แก่ ทีวีจอตู้สำหรับตลับวิดีโอ เครื่องเล่นแผ่นเสียงสำหรับแผ่นเพลงเดี่ยว เครื่องเล่นเทปคาสเซ็ทสำหรับม้วนเทปรวมเพลง และเครื่องเล่นพกพาวงล้อหมุน</li>
                     <li>เพิ่มระบบสังเคราะห์เสียงกลไกเชิงฟิสิกส์หลายชั้น จำลองเสียงใส่ตลับ มอเตอร์ดึงตลับ เปิดหลอดภาพ วางหัวเข็ม กดปุ่มเทป และหมุนวงล้อคลิก</li>
-                    <li>เพิ่มระบบแจ้งเตือนตามตรงและเอฟเฟกต์อนุภาคสลายตัวเป็นผงฝุ่นเมื่อเลือกไฟล์ที่ถูกลบหรือย้ายออกจากเครื่อง</li>
-                    <li>รองรับการฟังเพลงต่อเนื่องในพื้นหลังแม้สลับไปหน้าดาวน์โหลดหรือหน้าแปลงไฟล์ พร้อมแถบควบคุมย่อส่วน</li>
+                    <li>เพิ่มระบบแจ้งเตือนตามตรงและเอฟเฟกต์อนุภาคสลายตัวเป็นผงฝุ่นเมื่อคลิกเลือกไฟล์ที่ถูกลบหรือย้ายออกจากเครื่อง</li>
+                    <li>รองรับการฟังเพลงต่อเนื่องในพื้นหลังแม้สลับไปหน้าอื่น พร้อมแถบควบคุมย่อส่วนและปุ่มเปิดเล่นทันทีจากหน้าประวัติ</li>
+                    <li>ปรับปรุงระบบสั่งงานผ่านบอทระยะไกล รองรับการจำคิวขณะปิดโปรแกรมแล้วเริ่มดาวน์โหลดทันทีที่เปิดเครื่อง เลือกเพลงรายคลิปจากเพลย์ลิสต์ได้แม้ปิดโปรแกรม และรักษาการเชื่อมต่อเซิร์ฟเวอร์ตลอดยี่สิบสี่ชั่วโมง</li>
+                    <li>ปรับปรุงการฝังคำบรรยายลงไฟล์วิดีโอพร้อมแปลงรูปแบบอัตโนมัติ และแยกโฟลเดอร์ไฟล์ชั่วคราวเพื่อลบเศษไฟล์ค้างหลังดาวน์โหลดเสร็จสิ้น</li>
                   </>
                 ) : (
                   <>
                     <li>Added built-in realistic Retro Media Player with four standalone categories: CRT TV Cartridge Deck, Direct-Drive Turntable, Stereo Cassette Mixtape Deck, and Pocket Click-Wheel Player.</li>
                     <li>Engineered multi-layered physical mechanical foley sound engine for cartridge motors, CRT tube static, tonearm stylus drop, latching piano keys, and piezo click wheel.</li>
                     <li>Added transparent missing-file disclosure followed by HTML5 Canvas particle disintegration when selecting deleted or moved files.</li>
-                    <li>Added uninterrupted background audio playback across tabs with a persistent mini hardware transport bar.</li>
+                    <li>Added uninterrupted background audio playback across tabs with a persistent mini hardware transport bar and direct launch from Download History.</li>
+                    <li>Upgraded Remote Bot integration with automatic offline queue execution on startup, cloud playlist track selection while PC is offline, and 24/7 heartbeat stability.</li>
+                    <li>Improved subtitle embedding and SRT conversion, plus isolated temporary download workspaces with automatic fragment cleanup.</li>
                   </>
                 )}
               </ul>
