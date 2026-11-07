@@ -78,6 +78,29 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
 
           {/* Changelog Scrollable Container (Pure Thai / Pure English) */}
           <div className="max-h-56 overflow-y-auto p-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-xs space-y-3 font-sans select-text">
+            {/* Version 1.6.2 */}
+            <div>
+              <div className="flex items-center justify-between font-bold text-[var(--color-accent)] pb-0.5 border-b border-[var(--color-border)]/50">
+                <span>{language === 'th' ? 'เวอร์ชัน 1.6.2' : 'Version 1.6.2'}</span>
+                {renderVersionBadge('1.6.2')}
+              </div>
+              <ul className="list-disc list-inside text-[var(--color-text-muted)] space-y-0.5 pt-1 text-[11px]">
+                {language === 'th' ? (
+                  <>
+                    <li>รองรับการจัดเก็บเพลย์ลิสต์แยกเป็นโฟลเดอร์ได้ทันที ทั้งการตั้งชื่อโฟลเดอร์เพลย์ลิสต์เอง การเลือกโฟลเดอร์ปลายทางอื่น การสั่งจากบอทระยะไกล และการซิงค์โฟลเดอร์เพลงเป็นม้วนเทปอัตโนมัติ</li>
+                    <li>เพิ่มระบบเสียงกลไกสังเคราะห์สมจริงพร้อมแถบควบคุมเพลงขนาดย่อด้านล่างเมื่อสลับหน้าเมนู และจัดวางหน้าเครื่องเล่นสื่อให้พอดีหน้าจอโดยไม่ต้องเลื่อนซ้อน</li>
+                    <li>แก้ไขตัวกรองฟอร์แมตวิดีโอพร้อมแปลงภาพปกอัตโนมัติ แยกแยะลิงก์เพลงเดี่ยวออกจากวิทยุอัตโนมัติ และรองรับการกดปุ่มตกลงในช่องลิงก์เพื่อตรวจสอบและเริ่มดาวน์โหลดอย่างรวดเร็ว</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Added dedicated playlist folder organization with editable folder names, custom directory selection, remote bot playlist folder controls, and automatic cassette mixtape detection for audio folders.</li>
+                    <li>Added procedural mechanical foley audio synthesis, a persistent mini audio playback bar across tabs, and a zero-scroll media player viewport layout.</li>
+                    <li>Fixed video format filter syntax with automatic JPEG cover conversion, stripped radio mix parameters from single music links, and added instant Enter key inspect and download support.</li>
+                  </>
+                )}
+              </ul>
+            </div>
+
             {/* Version 1.6.0 */}
             <div>
               <div className="flex items-center justify-between font-bold text-[var(--color-accent)] pb-0.5 border-b border-[var(--color-border)]/50">
@@ -87,23 +110,17 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               <ul className="list-disc list-inside text-[var(--color-text-muted)] space-y-0.5 pt-1 text-[11px]">
                 {language === 'th' ? (
                   <>
-                    <li>เพิ่มโหมดเครื่องเล่นสื่อในตัวแบบสมจริง แยกเป็นสี่หมวดหมู่ ได้แก่ ทีวีจอตู้สำหรับตลับวิดีโอ เครื่องเล่นแผ่นเสียงปรับความเร็วรอบหมุนจริง เครื่องเล่นเทปคาสเซ็ทพร้อมดูรายชื่อเพลงในตลับ และเครื่องเล่นพกพาวงล้อหมุน</li>
-                    <li>รองรับการเลือกลวดลายสีตลับเทปและอัปโหลดรูปภาพตกแต่งหน้าตลับเอง พร้อมเครื่องมือตัด หมุน พลิก และจัดวางรูปภาพตามมาตรฐานสากล</li>
+                    <li>เพิ่มโหมดเครื่องเล่นสื่อย้อนยุคในตัวโปรแกรม แยกเป็นสี่หมวดหมู่ ได้แก่ ทีวีจอตู้สำหรับตลับวิดีโอ เครื่องเล่นแผ่นเสียงปรับความเร็วรอบหมุนจริง เครื่องเล่นเทปคาสเซ็ตพร้อมดูรายชื่อเพลงในตลับ และเครื่องเล่นพกพาวงล้อหมุน</li>
+                    <li>รองรับการเลือกลวดลายสีตลับเทปและอัปโหลดรูปภาพตกแต่งหน้าตลับเอง พร้อมเครื่องมือตัด หมุน พลิก และจัดวางรูปภาพตามสัดส่วนมาตรฐาน</li>
                     <li>เพิ่มอนิเมชันเสียบสายหูฟังอัตโนมัติในเครื่องเล่นพกพา พร้อมระบบฟิสิกส์ดึงและดีดสายหูฟังเล่นได้อย่างยืดหยุ่น</li>
-                    <li>เพิ่มระบบดึงภาพหน้าปกฝังในไฟล์เสียงและสกัดภาพตัวอย่างจากไฟล์วิดีโออัตโนมัติเพื่อให้แสดงรูปปกครบทุกรายการแม้ใช้งานออฟไลน์</li>
-                    <li>เพิ่มระบบเสียงกลไกฮาร์ดแวร์สมจริงและเอฟเฟกต์อนุภาคสลายตัวเป็นผงฝุ่นพร้อมแจ้งเตือนตามตรงเมื่อเลือกไฟล์ที่ถูกลบออกจากเครื่อง</li>
-                    <li>ปรับปรุงระบบสั่งงานผ่านบอทระยะไกล รองรับการจำคิวขณะปิดโปรแกรมแล้วเริ่มดาวน์โหลดทันทีที่เปิดเครื่อง เลือกเพลงรายคลิปจากเพลย์ลิสต์ขณะปิดโปรแกรม และรักษาการเชื่อมต่อเซิร์ฟเวอร์ตลอดยี่สิบสี่ชั่วโมง</li>
-                    <li>ปรับปรุงการฝังคำบรรยายลงไฟล์วิดีโอพร้อมแปลงรูปแบบอัตโนมัติ และแยกโฟลเดอร์ไฟล์ชั่วคราวเพื่อลบเศษไฟล์ค้างหลังดาวน์โหลดเสร็จสิ้น</li>
+                    <li>เพิ่มระบบดึงภาพหน้าปกฝังในไฟล์เสียงและสกัดภาพตัวอย่างจากไฟล์วิดีโออัตโนมัติ พร้อมเอฟเฟกต์สลายรายการเมื่อตรวจไม่พบไฟล์จริงในเครื่อง</li>
                   </>
                 ) : (
                   <>
-                    <li>Added built-in realistic Retro Media Player with four standalone categories: CRT TV Cartridge Deck, Direct-Drive Turntable with true audio rotation speed control, Stereo Cassette Deck with viewable tape tracklists, and Pocket Click-Wheel Player.</li>
-                    <li>Added visual patterned cassette shells plus custom cassette artwork upload with an interactive crop, zoom, aspect-ratio, rotate, and flip tool.</li>
-                    <li>Added automatic 3.5mm headphone plug-in animation and an interactive elastic physics cord on the Pocket Player.</li>
-                    <li>Added automatic embedded MP3 cover art and MP4 frame thumbnail extraction and local caching for reliable artwork display offline and online.</li>
-                    <li>Engineered realistic physical hardware foley audio and transparent missing-file disclosure with HTML5 Canvas particle disintegration.</li>
-                    <li>Upgraded Remote Bot integration with automatic offline queue execution on startup, cloud playlist track selection while PC is offline, and 24/7 heartbeat stability.</li>
-                    <li>Improved subtitle embedding and SRT conversion, plus isolated temporary download workspaces with automatic fragment cleanup.</li>
+                    <li>Added built-in Retro Media Player Suite with four standalone decks: CRT Television Video Deck, Direct-Drive Vinyl Turntable with true audio speed control, Cassette Tape Album Deck with viewable tracklists, and Portable Click-Wheel Music Player.</li>
+                    <li>Added patterned cassette shell color themes and custom cassette artwork upload with a standard-aspect interactive image cropper.</li>
+                    <li>Added automatic headphone jack plug-in animation and an interactive physics-based headphone cord on the Portable Player.</li>
+                    <li>Added automatic embedded MP3 cover art and MP4 frame thumbnail caching plus particle disintegration disclosure when local files are missing.</li>
                   </>
                 )}
               </ul>

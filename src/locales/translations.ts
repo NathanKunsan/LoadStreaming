@@ -110,6 +110,12 @@ export const translations = {
     playlistStartDownload: 'ดาวน์โหลดรายการที่เลือก',
     playlistItemsCount: 'คลิปทั้งหมด',
     playlistFetching: 'กำลังดึงข้อมูลเพลย์ลิสต์...',
+    playlistSaveToFolderToggle: 'จัดเก็บแยกในโฟลเดอร์เพลย์ลิสต์',
+    playlistFolderNameLabel: 'ชื่อโฟลเดอร์เพลย์ลิสต์',
+    playlistFolderNamePlaceholder: 'ระบุชื่อโฟลเดอร์สำหรับจัดเก็บเพลย์ลิสต์...',
+    playlistCustomDirBtn: 'เลือกโฟลเดอร์ปลายทาง',
+    playlistResetDefaultDirBtn: 'ใช้ตำแหน่งหลัก',
+    playlistTargetPathLabel: 'บันทึกไปที่',
     closeConfirmTitle: 'ยืนยันการปิดโปรแกรม',
     closeConfirmMessage: 'คุณต้องการปิดโปรแกรม หรือ ย่อการทำงานลงไปที่ถาดระบบ?',
     closeConfirmActiveWarning: 'มีรายการที่กำลังทำงานอยู่ หากย่อลงถาดระบบ การดาวน์โหลดจะดำเนินต่อไปในเบื้องหลังอย่างราบรื่น',
@@ -625,6 +631,12 @@ export const translations = {
     cropResetBtn: 'Reset',
     cropApplyBtn: 'Apply Crop',
     cropDragHint: 'Drag image to pan and scroll mouse wheel to zoom',
-    pwCordHint: 'Grab and pull the headphone cord to stretch and play with it'
+    pwCordHint: 'Grab and pull the headphone cord to stretch and play with it',
+    playlistSaveToFolderToggle: 'Save into a dedicated playlist folder',
+    playlistFolderNameLabel: 'Playlist Folder Name',
+    playlistFolderNamePlaceholder: 'Enter folder name for this playlist...',
+    playlistCustomDirBtn: 'Choose Folder',
+    playlistResetDefaultDirBtn: 'Default Location',
+    playlistTargetPathLabel: 'Destination'
   }
 };

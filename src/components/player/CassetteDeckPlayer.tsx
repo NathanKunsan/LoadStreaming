@@ -254,7 +254,33 @@ export const CassetteDeckPlayer: React.FC<CassetteDeckPlayerProps> = ({ language
       };
     });
 
-    return [...customs, ...builtIns];
+    // Automatically surface audio playlist subfolders as ready-to-play cassette mixtapes
+    const customNameSet = new Set(customs.map((c) => c.name.trim().toLowerCase()));
+    const folderGroups = new Map<string, MediaLibraryItem[]>();
+    const ignoredRoots = new Set(['audio', 'video', 'converted', 'loadstreaming', 'downloads', 'music']);
+    for (const item of audioItems) {
+      const parts = item.filePath.replace(/[/\\]+/g, '\\').split('\\');
+      if (parts.length >= 2) {
+        const parentFolder = parts[parts.length - 2].trim();
+        const lowerParent = parentFolder.toLowerCase();
+        if (parentFolder && !ignoredRoots.has(lowerParent) && !customNameSet.has(lowerParent)) {
+          if (!folderGroups.has(parentFolder)) {
+            folderGroups.set(parentFolder, []);
+          }
+          folderGroups.get(parentFolder)!.push(item);
+        }
+      }
+    }
+
+    const folderTapes: ResolvedMixtape[] = Array.from(folderGroups.entries()).map(([folderTitle, tracks]) => ({
+      id: `__folder_${folderTitle.toLowerCase()}__`,
+      name: folderTitle,
+      color: 'cobalt',
+      tracks,
+      isBuiltIn: true
+    }));
+
+    return [...customs, ...folderTapes, ...builtIns];
   }, [audioByNormPath, audioItems, mixtapes, t.csAutoAllName, t.csAutoRecentName]);
 
   const activeTape: ResolvedMixtape | null = useMemo(() => {

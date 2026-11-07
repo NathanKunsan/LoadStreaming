@@ -531,21 +531,27 @@ async function handleIncomingBotJob(jobData: {
   resolution?: string;
   title?: string;
   thumbnail?: string;
+  subFolder?: string;
 }) {
   const cfg = storage.getConfig();
   const isEn = cfg.language === 'en';
   let url = jobData.url;
   if (!jobData.isPlaylist) {
-    url = url.replace(/[?&]list=[^&]+/i, '').replace(/[?&]index=[^&]+/i, '').replace(/[?&]start_radio=[^&]+/i, '').replace(/\?$/, '');
+    url = downloader.stripRadioMixParams(downloader.normalizeUrl(url));
   }
   const mediaType: 'video' | 'audio' = jobData.mediaType === 'audio' ? 'audio' : 'video';
-  const targetDir = downloader.resolveDestinationDir(cfg.outputDir, mediaType);
+  const requestedSubFolder = typeof jobData.subFolder === 'string' && jobData.subFolder.trim()
+    ? jobData.subFolder.trim()
+    : undefined;
+  const targetDir = downloader.resolveDestinationDir(cfg.outputDir, mediaType, requestedSubFolder);
   const preferredRes = jobData.resolution || cfg.defaultVideoResolution || '1080p';
 
   if (jobData.isPlaylist) {
     try {
       const plInfo = await downloader.getPlaylistInfo(url);
       if (plInfo && plInfo.items && plInfo.items.length > 0) {
+        const playlistFolder = jobData.subFolder === '' ? undefined : (requestedSubFolder || plInfo.title);
+        const playlistTargetDir = downloader.resolveDestinationDir(cfg.outputDir, mediaType, playlistFolder);
         let idx = 1;
         for (const item of plInfo.items) {
           const itemJob: DownloadJob = {
@@ -555,7 +561,8 @@ async function handleIncomingBotJob(jobData: {
             thumbnail: item.thumbnail || '',
             mediaType,
             resolution: mediaType === 'video' ? preferredRes : undefined,
-            outputDir: targetDir,
+            subFolder: playlistFolder,
+            outputDir: playlistTargetDir,
             status: 'Waiting',
             pendingMetadata: false,
             progress: 0,
@@ -582,6 +589,7 @@ async function handleIncomingBotJob(jobData: {
     thumbnail: jobData.thumbnail || '',
     mediaType,
     resolution: mediaType === 'video' ? preferredRes : undefined,
+    subFolder: requestedSubFolder,
     outputDir: targetDir,
     status: 'Waiting',
     pendingMetadata: !hasTitle,
@@ -869,6 +877,20 @@ ipcMain.handle('select-directory', async () => {
   return null;
 });
 
+ipcMain.handle('select-custom-folder', async (_, defaultPath?: string) => {
+  if (!mainWindow) return null;
+  const fallback = defaultPath && fs.existsSync(defaultPath) ? defaultPath : storage.getConfig().outputDir;
+  const res = await dialog.showOpenDialog(mainWindow, {
+    title: storage.getConfig().language === 'en' ? 'Choose Destination Folder' : 'เลือกโฟลเดอร์สำหรับบันทึกเพลย์ลิสต์',
+    defaultPath: fallback,
+    properties: ['openDirectory', 'createDirectory']
+  });
+  if (!res.canceled && res.filePaths.length > 0) {
+    return path.normalize(res.filePaths[0]).replace(/[/\\]+/g, '\\').replace(/\\+$/, '');
+  }
+  return null;
+});
+
 ipcMain.handle('select-file', async (_, options?: { title?: string; filters?: { name: string; extensions: string[] }[] }) => {
   if (!mainWindow) return null;
   const res = await dialog.showOpenDialog(mainWindow, {
@@ -930,12 +952,12 @@ ipcMain.handle('select-files', async (_, options?: { title?: string; filters?: {
   return [];
 });
 
-ipcMain.handle('check-duplicate', (_, data: { baseDir: string; mediaType: MediaType; title: string }) => {
-  return downloader.checkDuplicate(data.baseDir, data.mediaType, data.title);
+ipcMain.handle('check-duplicate', (_, data: { baseDir: string; mediaType: MediaType; title: string; subFolder?: string; exactOutputDir?: boolean }) => {
+  return downloader.checkDuplicate(data.baseDir, data.mediaType, data.title, data.subFolder, data.exactOutputDir);
 });
 
-ipcMain.handle('resolve-destination-dir', (_, data: { baseDir: string; mediaType: MediaType; subFolder?: string }) => {
-  return downloader.resolveDestinationDir(data.baseDir, data.mediaType, data.subFolder);
+ipcMain.handle('resolve-destination-dir', (_, data: { baseDir: string; mediaType: MediaType; subFolder?: string; exactOutputDir?: boolean }) => {
+  return downloader.resolveDestinationDir(data.baseDir, data.mediaType, data.subFolder, data.exactOutputDir);
 });
 
 ipcMain.handle('start-conversion', async (_, job: ConversionJob) => {
@@ -979,6 +1001,7 @@ ipcMain.handle('start-download', (_, jobData: any) => {
     timeRange: jobData.timeRange,
     speedLimit: jobData.speedLimit,
     subFolder: jobData.subFolder,
+    exactOutputDir: jobData.exactOutputDir,
     downloadSubtitle: jobData.downloadSubtitle,
     subLang: jobData.subLang,
     outputDir: jobData.outputDir || config.outputDir,
@@ -1227,6 +1250,8 @@ ipcMain.handle('execute-radial-action', async (_, actionKey: string) => {
         if (downloader.isPlaylistUrl(targetUrl)) {
           downloader.getPlaylistInfo(targetUrl).then((plInfo) => {
             if (plInfo && plInfo.items && plInfo.items.length > 0) {
+              const plFolder = plInfo.title || undefined;
+              const plOutDir = downloader.resolveDestinationDir(cfg.outputDir, 'video', plFolder);
               for (const item of plInfo.items) {
                 const itemJob: DownloadJob = {
                   id: `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -1235,7 +1260,8 @@ ipcMain.handle('execute-radial-action', async (_, actionKey: string) => {
                   thumbnail: item.thumbnail || '',
                   mediaType: 'video',
                   resolution: forcedRes,
-                  outputDir: downloader.resolveDestinationDir(cfg.outputDir, 'video'),
+                  subFolder: plFolder,
+                  outputDir: plOutDir,
                   status: 'Waiting',
                   progress: 0,
                   downloadedSizeStr: '0 B',
@@ -1279,6 +1305,8 @@ ipcMain.handle('execute-radial-action', async (_, actionKey: string) => {
         if (downloader.isPlaylistUrl(targetUrl)) {
           downloader.getPlaylistInfo(targetUrl).then((plInfo) => {
             if (plInfo && plInfo.items && plInfo.items.length > 0) {
+              const plFolder = plInfo.title || undefined;
+              const plOutDir = downloader.resolveDestinationDir(cfg.outputDir, 'audio', plFolder);
               for (const item of plInfo.items) {
                 const itemJob: DownloadJob = {
                   id: `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -1286,7 +1314,8 @@ ipcMain.handle('execute-radial-action', async (_, actionKey: string) => {
                   title: item.title,
                   thumbnail: item.thumbnail || '',
                   mediaType: 'audio',
-                  outputDir: downloader.resolveDestinationDir(cfg.outputDir, 'audio'),
+                  subFolder: plFolder,
+                  outputDir: plOutDir,
                   status: 'Waiting',
                   progress: 0,
                   downloadedSizeStr: '0 B',

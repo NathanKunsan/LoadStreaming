@@ -257,7 +257,8 @@ const AppInner: React.FC<{
       const dup = await window.electronAPI.checkDuplicate({
         baseDir: data.outputDir,
         mediaType: data.mediaType,
-        title: data.title
+        title: data.title,
+        subFolder: data.subFolder
       });
 
       if (dup && dup.exists) {
@@ -358,12 +359,17 @@ const AppInner: React.FC<{
   const handlePlaylistDownloadSelected = async (
     items: PlaylistItem[],
     mediaType: MediaType,
-    resolution: string
+    resolution: string,
+    folderOptions?: { subFolder?: string; customBaseDir?: string }
   ) => {
     if (!window.electronAPI) return;
     setActivePlaylist(null);
     setMainSection('download');
     setActiveTab('queue');
+
+    const hasCustomDir = Boolean(folderOptions?.customBaseDir && folderOptions.customBaseDir.trim());
+    const targetOutputDir = hasCustomDir ? folderOptions!.customBaseDir!.trim() : config.outputDir;
+    const targetSubFolder = folderOptions?.subFolder?.trim() || undefined;
 
     for (const item of items) {
       try {
@@ -374,7 +380,9 @@ const AppInner: React.FC<{
           mediaType,
           resolution,
           timeRange: item.timeRange,
-          outputDir: config.outputDir
+          outputDir: targetOutputDir,
+          subFolder: targetSubFolder,
+          exactOutputDir: hasCustomDir
         });
       } catch (err) {
         console.error('Failed to queue playlist item:', err);
@@ -671,6 +679,7 @@ const AppInner: React.FC<{
           language={config.language}
           isOpen={true}
           playlistInfo={activePlaylist}
+          defaultOutputDir={config.outputDir}
           onClose={() => setActivePlaylist(null)}
           onDownloadSelected={handlePlaylistDownloadSelected}
         />

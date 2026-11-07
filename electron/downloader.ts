@@ -82,21 +82,27 @@ export class DownloadEngine {
     return cleaned;
   }
 
-  public resolveDestinationDir(baseDir: string, mediaType: MediaType, subFolder?: string): string {
-    let target = baseDir ? path.normalize(baseDir.trim()).replace(/[/\\]+/g, '\\').replace(/\\+$/, '') : app.getPath('downloads');
-    const baseName = path.basename(target).toLowerCase();
-    if (baseName === 'video' || baseName === 'audio') {
-      const parent = path.dirname(target);
-      if (path.basename(parent).toLowerCase() === 'loadstreaming') {
-        target = path.dirname(parent);
+  public resolveDestinationDir(baseDir: string, mediaType: MediaType, subFolder?: string, exactOutputDir?: boolean): string {
+    let finalDir: string;
+    if (exactOutputDir && baseDir && baseDir.trim()) {
+      finalDir = path.normalize(baseDir.trim()).replace(/[/\\]+/g, '\\').replace(/\\+$/, '');
+    } else {
+      let target = baseDir ? path.normalize(baseDir.trim()).replace(/[/\\]+/g, '\\').replace(/\\+$/, '') : app.getPath('downloads');
+      const baseName = path.basename(target).toLowerCase();
+      if (baseName === 'video' || baseName === 'audio') {
+        const parent = path.dirname(target);
+        if (path.basename(parent).toLowerCase() === 'loadstreaming') {
+          target = path.dirname(parent);
+        }
       }
-    }
-    if (!target.toLowerCase().endsWith('loadstreaming')) {
-      target = path.join(target, 'LoadStreaming');
+      if (!target.toLowerCase().endsWith('loadstreaming')) {
+        target = path.join(target, 'LoadStreaming');
+      }
+
+      const sub = mediaType === 'video' ? 'Video' : 'Audio';
+      finalDir = path.join(target, sub);
     }
 
-    const sub = mediaType === 'video' ? 'Video' : 'Audio';
-    let finalDir = path.join(target, sub);
     if (subFolder && subFolder.trim()) {
       const safeSub = this.sanitizeFilename(subFolder.trim());
       finalDir = path.join(finalDir, safeSub);
@@ -111,8 +117,8 @@ export class DownloadEngine {
     return finalDir;
   }
 
-  public checkDuplicate(baseDir: string, mediaType: MediaType, rawTitle: string): DuplicateCheckResult {
-    const targetDir = this.resolveDestinationDir(baseDir, mediaType);
+  public checkDuplicate(baseDir: string, mediaType: MediaType, rawTitle: string, subFolder?: string, exactOutputDir?: boolean): DuplicateCheckResult {
+    const targetDir = this.resolveDestinationDir(baseDir, mediaType, subFolder, exactOutputDir);
     const safeTitle = this.sanitizeFilename(rawTitle);
     const ext = mediaType === 'video' ? '.mp4' : '.mp3';
     const targetFile = path.join(targetDir, `${safeTitle}${ext}`);
@@ -633,7 +639,7 @@ export class DownloadEngine {
 
   private startDownload(job: DownloadJob) {
     job.status = 'Downloading';
-    job.outputDir = this.resolveDestinationDir(job.outputDir, job.mediaType, job.subFolder);
+    job.outputDir = this.resolveDestinationDir(job.outputDir, job.mediaType, job.subFolder, job.exactOutputDir);
     this.emitUpdate(job);
     this.saveQueue();
 

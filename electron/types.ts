@@ -58,6 +58,7 @@ export interface DownloadJob {
   timeRange?: TimeRange;
   speedLimit?: string;
   subFolder?: string;
+  exactOutputDir?: boolean;
   downloadSubtitle?: boolean;
   subLang?: string;
   outputDir: string;

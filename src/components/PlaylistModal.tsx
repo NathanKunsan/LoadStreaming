@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ListMusic, 
   X, 
@@ -10,7 +10,10 @@ import {
   Film,
   Music,
   Scissors,
-  Clock
+  Clock,
+  Folder,
+  FolderPlus,
+  RotateCcw
 } from 'lucide-react';
 import { PlaylistInfo, MediaType, PlaylistItem, TimeRange } from '../../electron/types';
 import { translations, Language } from '../locales/translations';
@@ -19,34 +22,102 @@ interface PlaylistModalProps {
   language: Language;
   isOpen: boolean;
   playlistInfo: PlaylistInfo | null;
+  defaultOutputDir: string;
   onClose: () => void;
-  onDownloadSelected: (items: PlaylistItem[], mediaType: MediaType, resolution: string) => void;
+  onDownloadSelected: (
+    items: PlaylistItem[],
+    mediaType: MediaType,
+    resolution: string,
+    folderOptions?: { subFolder?: string; customBaseDir?: string }
+  ) => void;
+}
+
+function sanitizeFolderPreview(raw: string): string {
+  return raw
+    .normalize('NFC')
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+    .replace(/\s+/g, ' ')
+    .replace(/_+/g, '_')
+    .trim()
+    .replace(/[. ]+$/, '');
 }
 
 export const PlaylistModal: React.FC<PlaylistModalProps> = ({
   language,
   isOpen,
   playlistInfo,
+  defaultOutputDir,
   onClose,
   onDownloadSelected
 }) => {
-  if (!isOpen || !playlistInfo) return null;
-
   const t = translations[language];
 
-  // Selected item IDs (default to all selected)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    new Set(playlistInfo.items.map(item => item.id))
-  );
-
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [mediaType, setMediaType] = useState<MediaType>('video');
   const [resolution, setResolution] = useState<string>('1080p');
+
+  // Playlist Folder State
+  const [usePlaylistFolder, setUsePlaylistFolder] = useState<boolean>(true);
+  const [folderName, setFolderName] = useState<string>('');
+  const [customBaseDir, setCustomBaseDir] = useState<string>('');
 
   // Per-item trimming state
   const [trimmedItems, setTrimmedItems] = useState<Record<string, TimeRange>>({});
   const [activeTrimItemId, setActiveTrimItemId] = useState<string | null>(null);
   const [tempStart, setTempStart] = useState<string>('00:00');
   const [tempEnd, setTempEnd] = useState<string>('');
+
+  useEffect(() => {
+    if (isOpen && playlistInfo) {
+      setSelectedIds(new Set(playlistInfo.items.map(item => item.id)));
+      setUsePlaylistFolder(true);
+      setFolderName(playlistInfo.title || '');
+      setCustomBaseDir('');
+      setTrimmedItems({});
+      setActiveTrimItemId(null);
+      setTempStart('00:00');
+      setTempEnd('');
+    } else if (!isOpen) {
+      setSelectedIds(new Set());
+      setFolderName('');
+      setCustomBaseDir('');
+      setTrimmedItems({});
+      setActiveTrimItemId(null);
+    }
+  }, [isOpen, playlistInfo]);
+
+  const previewTargetDir = useMemo(() => {
+    let base = '';
+    if (customBaseDir.trim()) {
+      base = customBaseDir.trim().replace(/[/\\]+/g, '\\').replace(/\\+$/, '');
+    } else {
+      let root = (defaultOutputDir || 'C:\\Downloads').trim().replace(/[/\\]+/g, '\\').replace(/\\+$/, '');
+      if (!root.toLowerCase().endsWith('loadstreaming')) {
+        root = `${root}\\LoadStreaming`;
+      }
+      base = `${root}\\${mediaType === 'video' ? 'Video' : 'Audio'}`;
+    }
+    const cleanSub = usePlaylistFolder ? sanitizeFolderPreview(folderName) : '';
+    return cleanSub ? `${base}\\${cleanSub}` : base;
+  }, [customBaseDir, defaultOutputDir, mediaType, usePlaylistFolder, folderName]);
+
+  if (!isOpen || !playlistInfo) return null;
+
+  const handleBrowseCustomFolder = async () => {
+    if (!window.electronAPI?.selectCustomFolder) return;
+    const chosen = await window.electronAPI.selectCustomFolder(customBaseDir || defaultOutputDir);
+    if (chosen) {
+      setCustomBaseDir(chosen);
+    }
+  };
+
+  const handleCloseClean = () => {
+    setSelectedIds(new Set());
+    setTrimmedItems({});
+    setActiveTrimItemId(null);
+    setCustomBaseDir('');
+    onClose();
+  };
 
   const toggleItem = (id: string) => {
     setSelectedIds(prev => {
@@ -82,8 +153,12 @@ export const PlaylistModal: React.FC<PlaylistModalProps> = ({
       });
 
     if (selectedItems.length === 0) return;
-    onDownloadSelected(selectedItems, mediaType, resolution);
-    onClose();
+    const effectiveSubFolder = usePlaylistFolder && folderName.trim() ? folderName.trim() : undefined;
+    onDownloadSelected(selectedItems, mediaType, resolution, {
+      subFolder: effectiveSubFolder,
+      customBaseDir: customBaseDir.trim() || undefined
+    });
+    handleCloseClean();
   };
 
   const formatDuration = (seconds?: number): string => {
@@ -109,7 +184,7 @@ export const PlaylistModal: React.FC<PlaylistModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleCloseClean}
             className="p-1 rounded hover:bg-[var(--color-surface-hover)] text-[var(--color-text-muted)] hover:text-[var(--color-text-main)] cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -196,9 +271,77 @@ export const PlaylistModal: React.FC<PlaylistModalProps> = ({
               </div>
             ) : (
               <div className="h-8 flex items-center px-2 bg-[var(--color-surface)] border border-[var(--color-border)] rounded text-[11px] text-[var(--color-text-muted)] font-mono">
-                320 kbps (High Quality MP3)
+                {language === 'th' ? '320 กิโลบิตต่อวินาที (คุณภาพสูง)' : '320 kbps (High Quality MP3)'}
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Playlist Folder Organization Bar */}
+        <div className="p-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-xs space-y-2 shrink-0">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className="flex items-center space-x-2 font-bold cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={usePlaylistFolder}
+                onChange={(e) => setUsePlaylistFolder(e.target.checked)}
+                className="w-4 h-4 rounded accent-[var(--color-accent)] cursor-pointer"
+              />
+              <FolderPlus className="w-3.5 h-3.5 text-[var(--color-accent)] shrink-0" />
+              <span>{t.playlistSaveToFolderToggle}</span>
+            </label>
+
+            <div className="flex items-center space-x-1.5">
+              {customBaseDir && (
+                <button
+                  type="button"
+                  onClick={() => setCustomBaseDir('')}
+                  className="px-2 py-1 rounded border border-[var(--color-border)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-hover)] text-[11px] font-semibold flex items-center space-x-1 cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>{t.playlistResetDefaultDirBtn}</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleBrowseCustomFolder}
+                className="pencil-button-secondary px-2.5 py-1 text-[11px] font-semibold flex items-center space-x-1 cursor-pointer"
+              >
+                <Folder className="w-3.5 h-3.5" />
+                <span>{t.playlistCustomDirBtn}</span>
+              </button>
+            </div>
+          </div>
+
+          {usePlaylistFolder && (
+            <div className="flex items-center space-x-2">
+              <span className="text-[11px] text-[var(--color-text-muted)] font-semibold shrink-0">
+                {t.playlistFolderNameLabel}:
+              </span>
+              <input
+                type="text"
+                value={folderName}
+                onChange={(e) => setFolderName(e.target.value)}
+                placeholder={t.playlistFolderNamePlaceholder}
+                className="flex-1 h-8 px-2.5 text-xs font-semibold select-text bg-[var(--color-surface)] border border-[var(--color-border)] focus:border-[var(--color-accent)] rounded outline-none text-[var(--color-text-main)]"
+              />
+              {folderName.trim() !== (playlistInfo.title || '').trim() && playlistInfo.title && (
+                <button
+                  type="button"
+                  onClick={() => setFolderName(playlistInfo.title)}
+                  className="p-1.5 rounded border border-[var(--color-border)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-hover)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] cursor-pointer shrink-0"
+                  title={playlistInfo.title}
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center space-x-1.5 text-[11px] text-[var(--color-text-muted)] font-mono truncate" title={previewTargetDir}>
+            <Folder className="w-3 h-3 shrink-0 text-[var(--color-accent)]" />
+            <span className="font-sans font-semibold shrink-0">{t.playlistTargetPathLabel}:</span>
+            <span className="truncate">{previewTargetDir}</span>
           </div>
         </div>
 
@@ -402,7 +545,7 @@ export const PlaylistModal: React.FC<PlaylistModalProps> = ({
         <div className="pt-2 flex items-center justify-between border-t border-[var(--color-border)] shrink-0">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleCloseClean}
             className="pencil-button-secondary px-4 py-1.5 text-xs font-semibold cursor-pointer"
           >
             {t.cancelModalBtn}
