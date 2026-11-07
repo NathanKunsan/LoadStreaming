@@ -1,15 +1,17 @@
 import fs from 'fs';
 import path from 'path';
 import { app } from 'electron';
-import { AppConfig, HistoryItem, DownloadJob } from './types';
+import { AppConfig, HistoryItem, DownloadJob, Mixtape } from './types';
 
 export class StorageManager {
   private configPath: string;
   private historyPath: string;
   private jobsPath: string;
+  private mixtapesPath: string;
   private config: AppConfig;
   private history: HistoryItem[] = [];
   private jobs: DownloadJob[] = [];
+  private mixtapes: Mixtape[] = [];
 
   constructor() {
     const userData = app.getPath('userData');
@@ -20,6 +22,7 @@ export class StorageManager {
     this.configPath = path.join(userData, 'config.json');
     this.historyPath = path.join(userData, 'history.json');
     this.jobsPath = path.join(userData, 'jobs.json');
+    this.mixtapesPath = path.join(userData, 'mixtapes.json');
 
     // Default config with check for installer configured directory
     let defaultDownloads = '';
@@ -113,6 +116,18 @@ export class StorageManager {
     } catch (e) {
       console.error('Failed to load jobs:', e);
     }
+
+    try {
+      if (fs.existsSync(this.mixtapesPath)) {
+        const raw = fs.readFileSync(this.mixtapesPath, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          this.mixtapes = parsed;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load mixtapes:', e);
+    }
   }
 
   public getConfig(): AppConfig {
@@ -142,6 +157,35 @@ export class StorageManager {
     return [...this.history];
   }
 
+  public removeHistoryItem(id?: string, filePath?: string): HistoryItem[] {
+    const normTarget = filePath ? path.normalize(filePath).toLowerCase() : '';
+    this.history = this.history.filter((h) => {
+      if (id && h.id === id) return false;
+      if (normTarget && h.filePath && path.normalize(h.filePath).toLowerCase() === normTarget) return false;
+      return true;
+    });
+    this.saveHistory();
+
+    if (normTarget && this.mixtapes.length > 0) {
+      let mixtapeChanged = false;
+      this.mixtapes = this.mixtapes.map((m) => {
+        const filtered = m.trackPaths.filter(
+          (tp) => path.normalize(tp).toLowerCase() !== normTarget
+        );
+        if (filtered.length !== m.trackPaths.length) {
+          mixtapeChanged = true;
+          return { ...m, trackPaths: filtered };
+        }
+        return m;
+      });
+      if (mixtapeChanged) {
+        this.saveMixtapesInternal();
+      }
+    }
+
+    return [...this.history];
+  }
+
   public clearHistory(): HistoryItem[] {
     this.history = [];
     this.saveHistory();
@@ -153,6 +197,25 @@ export class StorageManager {
       fs.writeFileSync(this.historyPath, JSON.stringify(this.history, null, 2), 'utf8');
     } catch (e) {
       console.error('Failed to save history:', e);
+    }
+  }
+
+  // Persistent Mixtapes
+  public getMixtapes(): Mixtape[] {
+    return [...this.mixtapes];
+  }
+
+  public saveMixtapes(mixtapes: Mixtape[]): Mixtape[] {
+    this.mixtapes = [...mixtapes];
+    this.saveMixtapesInternal();
+    return [...this.mixtapes];
+  }
+
+  private saveMixtapesInternal() {
+    try {
+      fs.writeFileSync(this.mixtapesPath, JSON.stringify(this.mixtapes, null, 2), 'utf8');
+    } catch (e) {
+      console.error('Failed to save mixtapes:', e);
     }
   }
 

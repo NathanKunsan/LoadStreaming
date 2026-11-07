@@ -102,6 +102,32 @@ export interface AppConfig {
   enableDiscordRemote?: boolean;
   discordChannelId?: string;
   discordWsUrl?: string;
+  playerSfxMuted?: boolean;
+}
+
+export type MainSectionTab = 'download' | 'convert' | 'player' | 'settings';
+
+export type PlayerCategory = 'tv' | 'turntable' | 'cassette' | 'portable';
+
+export type MixtapeShellColor = 'charcoal' | 'ivory' | 'amber' | 'cobalt' | 'crimson' | 'emerald';
+
+export interface Mixtape {
+  id: string;
+  name: string;
+  color: MixtapeShellColor;
+  trackPaths: string[];
+  createdAt: number;
+}
+
+export interface MediaLibraryItem {
+  id: string;
+  title: string;
+  thumbnail: string;
+  mediaType: MediaType;
+  resolution?: string;
+  filePath: string;
+  fileSizeStr: string;
+  completedAt: number;
 }
 
 export type AudioFormat = 'mp3' | 'wav' | 'flac' | 'm4a' | 'aac' | 'ogg' | 'opus' | 'wma' | 'aiff' | 'alac' | 'amr';

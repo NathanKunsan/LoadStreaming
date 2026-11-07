@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Trash2, FolderOpen, History, Video, Music } from 'lucide-react';
+import { Trash2, FolderOpen, History, Video, Music, Play } from 'lucide-react';
 import { HistoryItem } from '../../electron/types';
 import { translations, Language } from '../locales/translations';
 import { ConfirmModal } from './ConfirmModal';
@@ -9,13 +9,15 @@ interface HistorySectionProps {
   history: HistoryItem[];
   onClearHistory: () => void;
   onOpenFileLocation: (filePath: string) => void;
+  onPlayItem?: (item: HistoryItem) => void;
 }
 
 export const HistorySection: React.FC<HistorySectionProps> = ({
   language,
   history,
   onClearHistory,
-  onOpenFileLocation
+  onOpenFileLocation,
+  onPlayItem
 }) => {
   const t = translations[language];
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -90,16 +92,30 @@ export const HistorySection: React.FC<HistorySectionProps> = ({
               </div>
             </div>
 
-            {/* Action Button: Reveal in Explorer */}
-            <button
-              type="button"
-              onClick={() => onOpenFileLocation(item.filePath)}
-              className="pencil-button px-2.5 py-1 text-xs flex items-center space-x-1 cursor-pointer shrink-0"
-              title={t.openFolderBtn}
-            >
-              <FolderOpen className="w-3.5 h-3.5" />
-              <span>{t.openFolderBtn}</span>
-            </button>
+            {/* Action Buttons: Play in Built-in Deck & Reveal in Explorer */}
+            <div className="flex items-center gap-2 shrink-0">
+              {onPlayItem && (
+                <button
+                  type="button"
+                  onClick={() => onPlayItem(item)}
+                  className="px-2.5 py-1 text-xs font-bold bg-[var(--color-accent)] text-[var(--color-bg)] border-2 border-black dark:border-white rounded-xl sketch-btn shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center space-x-1 cursor-pointer"
+                  title={t.playInPlayerBtn}
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  <span>{t.playInPlayerBtn}</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => onOpenFileLocation(item.filePath)}
+                className="pencil-button px-2.5 py-1 text-xs flex items-center space-x-1 cursor-pointer shrink-0"
+                title={t.openFolderBtn}
+              >
+                <FolderOpen className="w-3.5 h-3.5" />
+                <span>{t.openFolderBtn}</span>
+              </button>
+            </div>
           </div>
         ))}
       </div>

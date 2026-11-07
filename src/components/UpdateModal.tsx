@@ -78,6 +78,31 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
 
           {/* Changelog Scrollable Container (Pure Thai / Pure English) */}
           <div className="max-h-56 overflow-y-auto p-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-xs space-y-3 font-sans select-text">
+            {/* Version 1.6.0 */}
+            <div>
+              <div className="flex items-center justify-between font-bold text-[var(--color-accent)] pb-0.5 border-b border-[var(--color-border)]/50">
+                <span>{language === 'th' ? 'เวอร์ชัน 1.6.0' : 'Version 1.6.0'}</span>
+                {renderVersionBadge('1.6.0')}
+              </div>
+              <ul className="list-disc list-inside text-[var(--color-text-muted)] space-y-0.5 pt-1 text-[11px]">
+                {language === 'th' ? (
+                  <>
+                    <li>เพิ่มโหมดเครื่องเล่นสื่อในตัวแบบสมจริง แยกเป็นสี่หมวดหมู่ ได้แก่ ทีวีจอตู้สำหรับตลับวิดีโอ เครื่องเล่นแผ่นเสียงสำหรับแผ่นเพลงเดี่ยว เครื่องเล่นเทปคาสเซ็ทสำหรับม้วนเทปรวมเพลง และเครื่องเล่นพกพาวงล้อหมุน</li>
+                    <li>เพิ่มระบบสังเคราะห์เสียงกลไกเชิงฟิสิกส์หลายชั้น จำลองเสียงใส่ตลับ มอเตอร์ดึงตลับ เปิดหลอดภาพ วางหัวเข็ม กดปุ่มเทป และหมุนวงล้อคลิก</li>
+                    <li>เพิ่มระบบแจ้งเตือนตามตรงและเอฟเฟกต์อนุภาคสลายตัวเป็นผงฝุ่นเมื่อเลือกไฟล์ที่ถูกลบหรือย้ายออกจากเครื่อง</li>
+                    <li>รองรับการฟังเพลงต่อเนื่องในพื้นหลังแม้สลับไปหน้าดาวน์โหลดหรือหน้าแปลงไฟล์ พร้อมแถบควบคุมย่อส่วน</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Added built-in realistic Retro Media Player with four standalone categories: CRT TV Cartridge Deck, Direct-Drive Turntable, Stereo Cassette Mixtape Deck, and Pocket Click-Wheel Player.</li>
+                    <li>Engineered multi-layered physical mechanical foley sound engine for cartridge motors, CRT tube static, tonearm stylus drop, latching piano keys, and piezo click wheel.</li>
+                    <li>Added transparent missing-file disclosure followed by HTML5 Canvas particle disintegration when selecting deleted or moved files.</li>
+                    <li>Added uninterrupted background audio playback across tabs with a persistent mini hardware transport bar.</li>
+                  </>
+                )}
+              </ul>
+            </div>
+
             {/* Version 1.5.4 */}
             <div>
               <div className="flex items-center justify-between font-bold text-[var(--color-accent)] pb-0.5 border-b border-[var(--color-border)]/50">

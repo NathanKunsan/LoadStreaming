@@ -4,6 +4,9 @@ import { UrlInputSection } from './components/UrlInputSection';
 import { QueueSection } from './components/QueueSection';
 import { HistorySection } from './components/HistorySection';
 import { ConvertSection } from './components/ConvertSection';
+import { MediaPlayerSection } from './components/MediaPlayerSection';
+import { MiniAudioBar } from './components/MiniAudioBar';
+import { MissingMediaDisintegrator } from './components/player/MissingMediaDisintegrator';
 import { SettingsSection } from './components/SettingsSection';
 import { DuplicateModal } from './components/DuplicateModal';
 import { DropZoneOverlay } from './components/DropZoneOverlay';
@@ -11,21 +14,28 @@ import { UpdateModal } from './components/UpdateModal';
 import { ToastNotification } from './components/ToastNotification';
 import { CloseConfirmModal } from './components/CloseConfirmModal';
 import { PlaylistModal } from './components/PlaylistModal';
-import { DownloadJob, HistoryItem, AppConfig, UpdateInfo, MediaType, PlaylistInfo, PlaylistItem, TimeRange } from '../electron/types';
+import { AudioDeckProvider, useAudioDeck } from './contexts/AudioDeckContext';
+import { mechanicalFoley } from './utils/mechanicalFoley';
+import { DownloadJob, HistoryItem, AppConfig, UpdateInfo, MediaType, PlaylistInfo, PlaylistItem, TimeRange, MainSectionTab, PlayerCategory } from '../electron/types';
 import { translations } from './locales/translations';
-import { ListFilter, History, Download, Repeat, Settings } from 'lucide-react';
+import { ListFilter, History, Download, Repeat, Settings, Disc3 } from 'lucide-react';
 
-export const App: React.FC = () => {
-  const [config, setConfig] = useState<AppConfig>({
-    theme: 'yellow-black',
-    language: 'th',
-    outputDir: 'C:\\Downloads'
-  });
+const AppInner: React.FC<{
+  config: AppConfig;
+  setConfig: React.Dispatch<React.SetStateAction<AppConfig>>;
+  history: HistoryItem[];
+  setHistory: React.Dispatch<React.SetStateAction<HistoryItem[]>>;
+}> = ({ config, setConfig, history, setHistory }) => {
+  const {
+    missingSpecimen,
+    completeDisintegration,
+    requestLaunchInPlayer
+  } = useAudioDeck();
 
-  const [mainSection, setMainSection] = useState<'download' | 'convert' | 'settings'>('download');
+  const [mainSection, setMainSection] = useState<MainSectionTab>('download');
+  const [playerCategory, setPlayerCategory] = useState<PlayerCategory>('tv');
   const [activeTab, setActiveTab] = useState<'queue' | 'history'>('queue');
   const [jobs, setJobs] = useState<DownloadJob[]>([]);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateProgress, setUpdateProgress] = useState<number | null>(null);
@@ -70,7 +80,10 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (window.electronAPI) {
       window.electronAPI.getConfig().then((cfg) => {
-        if (cfg) setConfig(cfg);
+        if (cfg) {
+          setConfig(cfg);
+          mechanicalFoley.setMuted(Boolean(cfg.playerSfxMuted));
+        }
       });
 
       window.electronAPI.getJobs().then((savedJobs) => {
@@ -406,7 +419,7 @@ export const App: React.FC = () => {
         onClose={() => setIsCloseModalOpen(true)}
       />
 
-      {/* Main Mode Navigation (Download vs Convert vs Settings) */}
+      {/* Main Mode Navigation (Download vs Convert vs Player vs Settings) */}
       <div className="flex items-center space-x-2 border-b-2 border-[var(--color-border)] px-4 md:px-6 pt-3 bg-[var(--color-bg)] shrink-0">
         <button
           type="button"
@@ -432,6 +445,19 @@ export const App: React.FC = () => {
         >
           <Repeat className="w-3.5 h-3.5" />
           <span className="uppercase tracking-wider">{t.mainTabConvert}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainSection('player')}
+          className={`px-5 py-2 text-xs font-bold rounded-t-md flex items-center space-x-2 transition-all cursor-pointer ${
+            mainSection === 'player'
+              ? 'bg-[var(--color-surface)] border-2 border-b-0 border-[var(--color-border)] text-[var(--color-accent)] -mb-[2px] pb-2.5 z-10'
+              : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-main)]'
+          }`}
+        >
+          <Disc3 className="w-3.5 h-3.5" />
+          <span className="uppercase tracking-wider">{t.mainTabPlayer}</span>
         </button>
 
         <button
@@ -519,6 +545,19 @@ export const App: React.FC = () => {
                   history={history}
                   onClearHistory={handleClearHistory}
                   onOpenFileLocation={handleOpenFileLocation}
+                  onPlayItem={(histItem) => {
+                    requestLaunchInPlayer({
+                      id: histItem.id,
+                      title: histItem.title,
+                      thumbnail: histItem.thumbnail,
+                      mediaType: histItem.mediaType,
+                      resolution: histItem.resolution,
+                      filePath: histItem.filePath,
+                      fileSizeStr: histItem.fileSizeStr,
+                      completedAt: histItem.completedAt
+                    });
+                    setMainSection('player');
+                  }}
                 />
               )}
             </div>
@@ -530,6 +569,25 @@ export const App: React.FC = () => {
             outputDir={config.outputDir}
             onBrowseFolder={handleBrowseFolder}
             initialFiles={droppedMediaFiles}
+          />
+        ) : mainSection === 'player' ? (
+          /* Built-in Retro Media Player (4 Standalone Categories) */
+          <MediaPlayerSection
+            language={config.language}
+            sfxMuted={Boolean(config.playerSfxMuted)}
+            onToggleSfxMute={async () => {
+              const nextMuted = !config.playerSfxMuted;
+              mechanicalFoley.setMuted(nextMuted);
+              if (!nextMuted) {
+                mechanicalFoley.playClickWheelButton();
+              }
+              setConfig((prev) => ({ ...prev, playerSfxMuted: nextMuted }));
+              if (window.electronAPI) {
+                await window.electronAPI.updateConfig({ playerSfxMuted: nextMuted });
+              }
+            }}
+            forcedCategory={playerCategory}
+            onCategoryChange={setPlayerCategory}
           />
         ) : (
           /* Dedicated Settings Section (v1.4.0) */
@@ -543,6 +601,23 @@ export const App: React.FC = () => {
           />
         )}
       </main>
+
+      {/* Persistent Mini Audio Hardware Strip when browsing outside Media Player tab */}
+      <MiniAudioBar
+        language={config.language}
+        visible={mainSection !== 'player'}
+        onJumpToPlayer={(cat) => {
+          setPlayerCategory(cat);
+          setMainSection('player');
+        }}
+      />
+
+      {/* Honest Missing File Notice + HTML5 Canvas Particle Disintegration Stage */}
+      <MissingMediaDisintegrator
+        language={config.language}
+        item={missingSpecimen}
+        onDisintegrateComplete={completeDisintegration}
+      />
 
       {/* Drag & Drop Animated Overlay */}
       <DropZoneOverlay
@@ -605,5 +680,25 @@ export const App: React.FC = () => {
         onCancel={() => setIsCloseModalOpen(false)}
       />
     </div>
+  );
+};
+
+export const App: React.FC = () => {
+  const [config, setConfig] = useState<AppConfig>({
+    theme: 'yellow-black',
+    language: 'th',
+    outputDir: 'C:\\Downloads'
+  });
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+
+  return (
+    <AudioDeckProvider historyTriggerCount={history.length}>
+      <AppInner
+        config={config}
+        setConfig={setConfig}
+        history={history}
+        setHistory={setHistory}
+      />
+    </AudioDeckProvider>
   );
 };

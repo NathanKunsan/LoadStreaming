@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage, clipboard, globalShortcut, session, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage, clipboard, globalShortcut, session, screen, protocol } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { execFile } from 'child_process';
@@ -6,7 +6,22 @@ import { DownloadEngine } from './downloader';
 import { ConversionEngine } from './converter';
 import { StorageManager } from './storage';
 import { UpdateManager } from './updater';
-import { DownloadJob, AppConfig, MediaType, ConversionJob } from './types';
+import { DownloadJob, AppConfig, MediaType, ConversionJob, Mixtape, MediaLibraryItem } from './types';
+
+// Register custom local-media protocol before app ready for zero-CORS, Range-capable video/audio playback
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'local-media',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      stream: true,
+      bypassCSP: true,
+      corsEnabled: true
+    }
+  }
+]);
 
 // Set App User Model ID for Windows Notifications
 app.setAppUserModelId('com.loadstreaming.app');
@@ -599,7 +614,147 @@ async function handleIncomingBotJob(jobData: {
   }
 }
 
+function createSafeWebFileStream(filePath: string, start: number, end: number): ReadableStream<Uint8Array> {
+  let nodeStream: fs.ReadStream | null = null;
+  let closed = false;
+
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      nodeStream = fs.createReadStream(filePath, { start, end });
+      nodeStream.on('data', (chunk: Buffer | string) => {
+        if (closed) return;
+        try {
+          const buf = typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
+          controller.enqueue(new Uint8Array(buf));
+        } catch {
+          closed = true;
+          nodeStream?.destroy();
+        }
+      });
+      nodeStream.on('end', () => {
+        if (closed) return;
+        closed = true;
+        try {
+          controller.close();
+        } catch {}
+      });
+      nodeStream.on('error', (err) => {
+        if (closed) return;
+        closed = true;
+        try {
+          controller.error(err);
+        } catch {}
+      });
+    },
+    cancel() {
+      closed = true;
+      if (nodeStream) {
+        nodeStream.destroy();
+        nodeStream = null;
+      }
+    }
+  });
+}
+
 app.whenReady().then(() => {
+  protocol.handle('local-media', async (request) => {
+    try {
+      const parsedUrl = new URL(request.url);
+      const filePath = parsedUrl.searchParams.get('path') || '';
+      if (!filePath || !fs.existsSync(filePath)) {
+        return new Response('Media Not Found', { status: 404 });
+      }
+
+      const stat = fs.statSync(filePath);
+      if (!stat.isFile()) {
+        return new Response('Invalid Media Path', { status: 404 });
+      }
+
+      const totalSize = stat.size;
+      const ext = path.extname(filePath).toLowerCase();
+      const mimeMap: Record<string, string> = {
+        '.mp4': 'video/mp4',
+        '.m4v': 'video/mp4',
+        '.webm': 'video/webm',
+        '.mkv': 'video/x-matroska',
+        '.mov': 'video/quicktime',
+        '.mp3': 'audio/mpeg',
+        '.wav': 'audio/wav',
+        '.flac': 'audio/flac',
+        '.m4a': 'audio/mp4',
+        '.aac': 'audio/aac',
+        '.ogg': 'audio/ogg',
+        '.opus': 'audio/opus',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.webp': 'image/webp'
+      };
+      const contentType = mimeMap[ext] || 'application/octet-stream';
+      const rangeHeader = request.headers.get('range') || request.headers.get('Range');
+
+      if (rangeHeader && totalSize > 0) {
+        const match = /bytes=(\d*)-(\d*)/.exec(rangeHeader);
+        if (match) {
+          const start = match[1] ? parseInt(match[1], 10) : 0;
+          let end = match[2] ? parseInt(match[2], 10) : totalSize - 1;
+          if (start >= totalSize || start < 0) {
+            return new Response(null, {
+              status: 416,
+              headers: {
+                'Content-Range': `bytes */${totalSize}`,
+                'Access-Control-Allow-Origin': '*'
+              }
+            });
+          }
+          if (end >= totalSize) end = totalSize - 1;
+          const chunkSize = end - start + 1;
+          const stream = createSafeWebFileStream(filePath, start, end);
+          return new Response(stream, {
+            status: 206,
+            headers: {
+              'Content-Type': contentType,
+              'Content-Length': String(chunkSize),
+              'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+              'Accept-Ranges': 'bytes',
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Headers': 'Range',
+              'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
+              'Cache-Control': 'no-cache'
+            }
+          });
+        }
+      }
+
+      if (totalSize === 0) {
+        return new Response(new Uint8Array(0), {
+          status: 200,
+          headers: {
+            'Content-Type': contentType,
+            'Content-Length': '0',
+            'Access-Control-Allow-Origin': '*'
+          }
+        });
+      }
+
+      const stream = createSafeWebFileStream(filePath, 0, totalSize - 1);
+      return new Response(stream, {
+        status: 200,
+        headers: {
+          'Content-Type': contentType,
+          'Content-Length': String(totalSize),
+          'Accept-Ranges': 'bytes',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Range',
+          'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
+          'Cache-Control': 'no-cache'
+        }
+      });
+    } catch {
+      return new Response('Internal Media Error', { status: 500 });
+    }
+  });
+
   createWindow();
   createTray();
   createToastWindow();
@@ -1214,4 +1369,155 @@ ipcMain.handle('download-and-apply-update', async (_, downloadUrl: string) => {
   return await updater.downloadAndApplyUpdate(downloadUrl, (percent) => {
     mainWindow?.webContents.send('update-progress', percent);
   });
+});
+
+// Built-in Retro Media Player IPC
+function formatBytesReadable(bytes: number): string {
+  if (!bytes || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let val = bytes;
+  let idx = 0;
+  while (val >= 1024 && idx < units.length - 1) {
+    val /= 1024;
+    idx++;
+  }
+  return `${val.toFixed(idx === 0 ? 0 : 1)} ${units[idx]}`;
+}
+
+function collectDiskMediaFiles(dirPath: string, depth = 0): string[] {
+  const results: string[] = [];
+  if (depth > 2) return results;
+  try {
+    if (!fs.existsSync(dirPath)) return results;
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        results.push(...collectDiskMediaFiles(fullPath, depth + 1));
+      } else if (entry.isFile()) {
+        const ext = path.extname(entry.name).toLowerCase();
+        if (ext === '.mp4' || ext === '.mp3') {
+          results.push(fullPath);
+        }
+      }
+    }
+  } catch {}
+  return results;
+}
+
+ipcMain.handle('scan-media-library', (): MediaLibraryItem[] => {
+  const cfg = storage.getConfig();
+  const history = storage.getHistory();
+  const seenPaths = new Set<string>();
+  const items: MediaLibraryItem[] = [];
+
+  // 1. Include all history items (even if missing on disk, so missing items show on shelf until selected & disintegrated)
+  for (const h of history) {
+    if (!h.filePath) continue;
+    const ext = path.extname(h.filePath).toLowerCase();
+    const isMp4 = ext === '.mp4' || (h.mediaType === 'video' && (!ext || ext === '.mp4'));
+    const isMp3 = ext === '.mp3' || (h.mediaType === 'audio' && (!ext || ext === '.mp3'));
+    if (!isMp4 && !isMp3) continue;
+
+    const norm = path.normalize(h.filePath).toLowerCase();
+    if (seenPaths.has(norm)) continue;
+    seenPaths.add(norm);
+
+    items.push({
+      id: h.id,
+      title: h.title || path.basename(h.filePath, path.extname(h.filePath)),
+      thumbnail: h.thumbnail || '',
+      mediaType: isMp4 ? 'video' : 'audio',
+      resolution: h.resolution,
+      filePath: h.filePath,
+      fileSizeStr: h.fileSizeStr || '--',
+      completedAt: h.completedAt || Date.now()
+    });
+  }
+
+  // 2. Discover any additional .mp4 / .mp3 files in outputDir (Video, Audio, Converted, and tag subfolders)
+  const scanRoots = [
+    path.join(cfg.outputDir, 'Video'),
+    path.join(cfg.outputDir, 'Audio'),
+    path.join(cfg.outputDir, 'Converted'),
+    cfg.outputDir
+  ];
+
+  const discoveredFiles: string[] = [];
+  for (const rootDir of scanRoots) {
+    if (rootDir === cfg.outputDir) {
+      // Top-level only for outputDir itself to avoid re-walking Video/Audio
+      try {
+        if (fs.existsSync(rootDir)) {
+          for (const entry of fs.readdirSync(rootDir, { withFileTypes: true })) {
+            if (entry.isFile()) {
+              const ext = path.extname(entry.name).toLowerCase();
+              if (ext === '.mp4' || ext === '.mp3') {
+                discoveredFiles.push(path.join(rootDir, entry.name));
+              }
+            }
+          }
+        }
+      } catch {}
+    } else {
+      discoveredFiles.push(...collectDiskMediaFiles(rootDir, 0));
+    }
+  }
+
+  for (const filePath of discoveredFiles) {
+    const norm = path.normalize(filePath).toLowerCase();
+    if (seenPaths.has(norm)) continue;
+    seenPaths.add(norm);
+
+    try {
+      const stat = fs.statSync(filePath);
+      const ext = path.extname(filePath).toLowerCase();
+      const baseTitle = path.basename(filePath, ext);
+      // Check if an adjacent image cover exists
+      let localThumb = '';
+      for (const imgExt of ['.jpg', '.jpeg', '.png', '.webp']) {
+        const candidate = path.join(path.dirname(filePath), baseTitle + imgExt);
+        if (fs.existsSync(candidate)) {
+          localThumb = `local-media://media/stream?path=${encodeURIComponent(candidate)}`;
+          break;
+        }
+      }
+
+      items.push({
+        id: `disk_${ Buffer.from(norm).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 20) }`,
+        title: baseTitle,
+        thumbnail: localThumb,
+        mediaType: ext === '.mp4' ? 'video' : 'audio',
+        resolution: ext === '.mp4' ? 'MP4' : undefined,
+        filePath,
+        fileSizeStr: formatBytesReadable(stat.size),
+        completedAt: Math.round(stat.mtimeMs || Date.now())
+      });
+    } catch {}
+  }
+
+  return items;
+});
+
+ipcMain.handle('check-media-file-exists', (_, filePath: string): boolean => {
+  try {
+    if (!filePath) return false;
+    return fs.existsSync(filePath) && fs.statSync(filePath).isFile();
+  } catch {
+    return false;
+  }
+});
+
+ipcMain.handle('remove-media-history-item', (_, data: { id?: string; filePath?: string }) => {
+  const updated = storage.removeHistoryItem(data?.id, data?.filePath);
+  mainWindow?.webContents.send('history-updated', updated);
+  return updated;
+});
+
+ipcMain.handle('get-mixtapes', (): Mixtape[] => {
+  return storage.getMixtapes();
+});
+
+ipcMain.handle('save-mixtapes', (_, mixtapes: Mixtape[]): Mixtape[] => {
+  return storage.saveMixtapes(mixtapes);
 });

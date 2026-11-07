@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { DownloadJob, AppConfig, VideoInfo, HistoryItem, UpdateInfo, MediaType, ConversionJob, DuplicateCheckResult, PlaylistInfo, FetchMediaResult } from './types';
+import { DownloadJob, AppConfig, VideoInfo, HistoryItem, UpdateInfo, MediaType, ConversionJob, DuplicateCheckResult, PlaylistInfo, FetchMediaResult, Mixtape, MediaLibraryItem, MainSectionTab } from './types';
 
 export const electronAPI = {
   // Window
@@ -46,6 +46,13 @@ export const electronAPI = {
   // History
   getHistory: (): Promise<HistoryItem[]> => ipcRenderer.invoke('get-history'),
   clearHistory: (): Promise<HistoryItem[]> => ipcRenderer.invoke('clear-history'),
+
+  // Built-in Retro Media Player
+  scanMediaLibrary: (): Promise<MediaLibraryItem[]> => ipcRenderer.invoke('scan-media-library'),
+  checkMediaFileExists: (filePath: string): Promise<boolean> => ipcRenderer.invoke('check-media-file-exists', filePath),
+  removeMediaHistoryItem: (data: { id?: string; filePath?: string }): Promise<HistoryItem[]> => ipcRenderer.invoke('remove-media-history-item', data),
+  getMixtapes: (): Promise<Mixtape[]> => ipcRenderer.invoke('get-mixtapes'),
+  saveMixtapes: (mixtapes: Mixtape[]): Promise<Mixtape[]> => ipcRenderer.invoke('save-mixtapes', mixtapes),
 
   // Updates
   checkForUpdates: (): Promise<UpdateInfo> => ipcRenderer.invoke('check-for-updates'),
@@ -94,8 +101,8 @@ export const electronAPI = {
     ipcRenderer.on('inspect-url', subscription);
     return () => { ipcRenderer.removeListener('inspect-url', subscription); };
   },
-  onSwitchTab: (callback: (tab: 'download' | 'convert' | 'settings') => void) => {
-    const subscription = (_: any, tab: 'download' | 'convert' | 'settings') => callback(tab);
+  onSwitchTab: (callback: (tab: MainSectionTab) => void) => {
+    const subscription = (_: any, tab: MainSectionTab) => callback(tab);
     ipcRenderer.on('switch-tab', subscription);
     return () => { ipcRenderer.removeListener('switch-tab', subscription); };
   },
