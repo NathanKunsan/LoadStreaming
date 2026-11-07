@@ -144,16 +144,49 @@ export class DownloadEngine {
     };
   }
 
+  public normalizeUrl(rawUrl: string): string {
+    if (!rawUrl || typeof rawUrl !== 'string') return '';
+    const trimmed = rawUrl.trim();
+    if (!trimmed) return '';
+    if (!/^https?:\/\//i.test(trimmed) && /^(?:(?:www|m|music)\.)?(?:youtube\.com|youtu\.be)\//i.test(trimmed)) {
+      return `https://${trimmed}`;
+    }
+    return trimmed;
+  }
+
+  public stripRadioMixParams(rawUrl: string): string {
+    const normalized = this.normalizeUrl(rawUrl);
+    if (!normalized || this.isPlaylistUrl(normalized)) return normalized;
+    try {
+      const parsed = new URL(normalized);
+      if (parsed.hostname.includes('youtube.com') || parsed.hostname.includes('youtu.be')) {
+        parsed.searchParams.delete('list');
+        parsed.searchParams.delete('index');
+        parsed.searchParams.delete('start_radio');
+        return parsed.toString();
+      }
+    } catch {}
+    return normalized;
+  }
+
   public isPlaylistUrl(url: string): boolean {
     if (!url || typeof url !== 'string') return false;
-    const trimmed = url.trim();
-    const playlistRegex = /(?:youtube\.com\/playlist\?list=|youtu\.be\/.*[?&]list=|[?&]list=)([a-zA-Z0-9_-]+)/i;
-    return playlistRegex.test(trimmed);
+    const trimmed = this.normalizeUrl(url);
+    const listMatch = trimmed.match(/[?&]list=([a-zA-Z0-9_-]+)/i);
+    if (!listMatch) return false;
+
+    const listId = listMatch[1];
+    const isSingleWatch = /(?:youtube\.com\/watch\?.*v=|youtu\.be\/[\w-]{11})/i.test(trimmed);
+    if (isSingleWatch && (/^(RD|UL)/i.test(listId) || /[?&]start_radio=1/i.test(trimmed))) {
+      return false;
+    }
+
+    return true;
   }
 
   public isPotentialVideoUrl(rawUrl: string): boolean {
     if (!rawUrl || typeof rawUrl !== 'string') return false;
-    const trimmed = rawUrl.trim();
+    const trimmed = this.normalizeUrl(rawUrl);
     if (!/^https?:\/\//i.test(trimmed)) return false;
 
     // Reject non-media platforms
@@ -188,7 +221,7 @@ export class DownloadEngine {
     if (!rawUrl || typeof rawUrl !== 'string') {
       return { valid: false, error: 'INVALID_URL' };
     }
-    const trimmed = rawUrl.trim();
+    const trimmed = this.normalizeUrl(rawUrl);
 
     const shortsRegex = /(?:youtube\.com\/shorts\/|youtu\.be\/shorts\/)/i;
     if (shortsRegex.test(trimmed)) {
@@ -196,7 +229,7 @@ export class DownloadEngine {
     }
 
     const isPlaylist = this.isPlaylistUrl(trimmed);
-    const ytRegex = /^(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?.*v=|embed\/|v\/)|youtu\.be\/)([\w-]{11})(?:[?&].*)?$/i;
+    const ytRegex = /^(?:https?:\/\/)?(?:(?:www|m|music)\.)?(?:youtube\.com\/(?:watch\?.*v=|embed\/|v\/|live\/)|youtu\.be\/)([\w-]{11})(?:[?&/].*)?$/i;
     const genericHttpRegex = /^https?:\/\/[^\s$.?#].[^\s]*$/i;
 
     if (!ytRegex.test(trimmed) && !isPlaylist && !genericHttpRegex.test(trimmed)) {
@@ -207,12 +240,16 @@ export class DownloadEngine {
   }
 
   public async getPlaylistInfo(url: string): Promise<PlaylistInfo> {
+    const normalizedUrl = this.normalizeUrl(url);
     return new Promise((resolve, reject) => {
       const args = [
         '--flat-playlist',
         '--dump-single-json',
+        '--no-warnings',
+        '--socket-timeout', '10',
+        '--playlist-end', '200',
         '--ffmpeg-location', this.ffmpegPath,
-        url.trim()
+        normalizedUrl
       ];
 
       const child = spawn(this.ytdlpPath, args, { windowsHide: true });
@@ -306,7 +343,7 @@ export class DownloadEngine {
   }
 
   public async getVideoInfo(url: string): Promise<VideoInfo> {
-    const trimmedUrl = url.trim();
+    const trimmedUrl = this.stripRadioMixParams(this.normalizeUrl(url));
     const validation = this.validateUrl(trimmedUrl);
     if (!validation.valid) {
       throw new Error(validation.error);
@@ -393,12 +430,13 @@ export class DownloadEngine {
   }
 
   public addJob(job: DownloadJob) {
-    // Prevent adding duplicate job if same URL is already Downloading or Waiting
+    job.url = this.stripRadioMixParams(this.normalizeUrl(job.url));
+    // Prevent adding duplicate job if same URL and mediaType is already Downloading or Waiting
     const duplicateRunning = this.queue.find(
-      j => j.url === job.url && (j.status === 'Downloading' || j.status === 'Waiting')
+      j => j.url === job.url && j.mediaType === job.mediaType && (j.status === 'Downloading' || j.status === 'Waiting')
     );
     if (duplicateRunning) {
-      console.log('Job with same URL is already running or queued:', job.url);
+      console.log('Job with same URL and mediaType is already running or queued:', job.url);
       return;
     }
 
@@ -484,9 +522,9 @@ export class DownloadEngine {
         console.error('Error killing job process:', err);
       }
 
-      // Also cancel any other duplicate waiting jobs with the same URL so it doesn't restart
+      // Also cancel any other duplicate waiting jobs with the same URL and mediaType so it doesn't restart
       for (const other of this.queue) {
-        if (other.id !== active.job.id && other.url === active.job.url && other.status === 'Waiting') {
+        if (other.id !== active.job.id && other.url === active.job.url && other.mediaType === active.job.mediaType && other.status === 'Waiting') {
           other.status = 'Cancelled';
           this.emitUpdate(other);
         }
@@ -508,7 +546,7 @@ export class DownloadEngine {
       queued.etaStr = '--';
 
       for (const other of this.queue) {
-        if (other.id !== queued.id && other.url === queued.url && other.status === 'Waiting') {
+        if (other.id !== queued.id && other.url === queued.url && other.mediaType === queued.mediaType && other.status === 'Waiting') {
           other.status = 'Cancelled';
           this.emitUpdate(other);
         }
@@ -667,10 +705,11 @@ export class DownloadEngine {
     if (job.mediaType === 'video') {
       const height = job.resolution ? job.resolution.replace('p', '') : '1080';
       args.push(
-        '-f', `bestvideo[height<=?${height}][format_note*!=Premium][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=?${height}][format_note*!=Premium]+bestaudio/bestvideo[height<=?${height}]+bestaudio/best[height<=?${height}]/best`,
+        '-f', `bestvideo[height<=?${height}][format_note!*=?Premium][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=?${height}][format_note!*=?Premium]+bestaudio/bestvideo[height<=?${height}]+bestaudio/best[height<=?${height}]/best`,
         '--merge-output-format', 'mp4',
         '--embed-thumbnail',
-        '--embed-metadata'
+        '--embed-metadata',
+        '--convert-thumbnails', 'jpg'
       );
       if (job.downloadSubtitle) {
         args.push('--embed-subs');
@@ -686,13 +725,17 @@ export class DownloadEngine {
       );
     }
 
-    args.push(job.url);
+    const targetDownloadUrl = this.stripRadioMixParams(this.normalizeUrl(job.url));
+    job.url = targetDownloadUrl;
+    args.push(targetDownloadUrl);
 
+    const jobStartedAt = Date.now();
     const child = spawn(this.ytdlpPath, args, { windowsHide: true });
     this.activeJobs.set(job.id, { process: child, job });
 
     let streamStage = 1; // 1 = video, 2 = audio
     let lastEmitTime = 0;
+    let lastErrorLine = '';
 
     let finalExpectedFile = path.join(
       job.outputDir,
@@ -702,20 +745,26 @@ export class DownloadEngine {
     const handleData = (chunk: Buffer) => {
       const lines = chunk.toString().split('\n');
       for (const line of lines) {
-        if (!line.trim()) continue;
+        const trimmedLine = line.trim();
+        if (!trimmedLine) continue;
+
+        const errMatch = trimmedLine.match(/^ERROR:\s*(.+)$/i);
+        if (errMatch && errMatch[1]) {
+          lastErrorLine = errMatch[1].trim();
+        }
 
         // Detect transition to audio stream
-        if (line.includes('[download] Destination:') && job.mediaType === 'video') {
+        if (trimmedLine.includes('[download] Destination:') && job.mediaType === 'video') {
           if (streamStage === 1 && job.progress >= 70) {
             streamStage = 2;
           }
         }
 
         // Detect actual filename / destination from yt-dlp output
-        const destMatch = line.match(/\[download\] Destination:\s+(.+)$/i) ||
-                          line.match(/\[Merger\] Merging formats into "(.+)"/i) ||
-                          line.match(/\[ExtractAudio\] Destination:\s+(.+)$/i) ||
-                          line.match(/\[MoveFiles\] Moving file ".+" to "(.+)"/i);
+        const destMatch = trimmedLine.match(/\[download\] Destination:\s+(.+)$/i) ||
+                          trimmedLine.match(/\[Merger\] Merging formats into "(.+)"/i) ||
+                          trimmedLine.match(/\[ExtractAudio\] Destination:\s+(.+)$/i) ||
+                          trimmedLine.match(/\[MoveFiles\] Moving file ".+" to "(.+)"/i);
         if (destMatch && destMatch[1]) {
           const detectedPath = destMatch[1].trim();
           finalExpectedFile = detectedPath;
@@ -726,7 +775,7 @@ export class DownloadEngine {
           }
         }
 
-        this.parseSmoothProgress(line, job, streamStage, () => {
+        this.parseSmoothProgress(trimmedLine, job, streamStage, () => {
           const now = Date.now();
           if (now - lastEmitTime >= 150) {
             lastEmitTime = now;
@@ -739,6 +788,47 @@ export class DownloadEngine {
     child.stdout.on('data', handleData);
     child.stderr.on('data', handleData);
 
+    const locateFinishedOutput = (): string | null => {
+      const targetExt = job.mediaType === 'video' ? '.mp4' : '.mp3';
+      if (finalExpectedFile && finalExpectedFile.toLowerCase().endsWith(targetExt) && fs.existsSync(finalExpectedFile)) {
+        try {
+          const st = fs.statSync(finalExpectedFile);
+          if (st.size > 10240) return finalExpectedFile;
+        } catch {}
+      }
+      try {
+        const files = fs.readdirSync(job.outputDir);
+        const hasActivePart = !isPlaceholderTitle && files.some(f => f.startsWith(safeTitle) && (f.endsWith('.part') || f.includes('.part-Frag')));
+        if (hasActivePart) return null;
+
+        let match = !isPlaceholderTitle ? files.find(f => f.startsWith(safeTitle) && f.endsWith(targetExt)) : null;
+        if (!match) {
+          const recentFiles = files
+            .filter(f => f.endsWith(targetExt))
+            .map(f => {
+              const fp = path.join(job.outputDir, f);
+              const st = fs.statSync(fp);
+              return { name: f, path: fp, mtime: st.mtimeMs, size: st.size };
+            })
+            .filter(item => item.size > 10240 && item.mtime >= jobStartedAt - 3000)
+            .sort((a, b) => b.mtime - a.mtime);
+          if (recentFiles.length > 0) {
+            match = recentFiles[0].name;
+          }
+        }
+        if (match) {
+          const candidate = path.join(job.outputDir, match);
+          const st = fs.statSync(candidate);
+          if (st.size > 10240 && (codeZeroOrRecent(st.mtimeMs, jobStartedAt))) {
+            return candidate;
+          }
+        }
+      } catch {}
+      return null;
+    };
+
+    const codeZeroOrRecent = (mtimeMs: number, startedAt: number) => mtimeMs >= startedAt - 5000;
+
     child.on('close', (code) => {
       this.activeJobs.delete(job.id);
 
@@ -748,44 +838,23 @@ export class DownloadEngine {
         return;
       }
 
-      if (code === 0) {
+      const resolvedOutput = locateFinishedOutput();
+      if (code === 0 || resolvedOutput) {
         job.status = 'Completed';
         job.progress = 100;
         job.downloadSpeedStr = 'Finished';
         job.etaStr = '00:00';
         job.completedAt = Date.now();
+        job.error = undefined;
 
-        if (finalExpectedFile && fs.existsSync(finalExpectedFile)) {
-          job.finalFilePath = finalExpectedFile;
-          const detectedBase = path.basename(finalExpectedFile, path.extname(finalExpectedFile));
+        const targetExt = job.mediaType === 'video' ? '.mp4' : '.mp3';
+        const finalPath = resolvedOutput || (finalExpectedFile && fs.existsSync(finalExpectedFile) ? finalExpectedFile : undefined);
+        if (finalPath) {
+          job.finalFilePath = finalPath;
+          const detectedBase = path.basename(finalPath, targetExt);
           if (detectedBase && (job.title.includes('กำลังดึงข้อมูล') || job.title.includes('กำลังเชื่อมต่อ') || job.title.includes('Retrieving media') || !job.title)) {
             job.title = detectedBase;
           }
-        } else {
-          try {
-            const files = fs.readdirSync(job.outputDir);
-            const targetExt = job.mediaType === 'video' ? '.mp4' : '.mp3';
-            let match = !isPlaceholderTitle ? files.find(f => f.startsWith(safeTitle) && f.endsWith(targetExt)) : null;
-            if (!match) {
-              const recentFiles = files
-                .filter(f => f.endsWith(targetExt))
-                .map(f => {
-                  const fp = path.join(job.outputDir, f);
-                  return { name: f, path: fp, mtime: fs.statSync(fp).mtimeMs };
-                })
-                .sort((a, b) => b.mtime - a.mtime);
-              if (recentFiles.length > 0 && Date.now() - recentFiles[0].mtime < 20000) {
-                match = recentFiles[0].name;
-              }
-            }
-            if (match) {
-              job.finalFilePath = path.join(job.outputDir, match);
-              const detectedBase = path.basename(match, targetExt);
-              if (detectedBase && (job.title.includes('กำลังดึงข้อมูล') || job.title.includes('กำลังเชื่อมต่อ') || job.title.includes('Retrieving media') || !job.title)) {
-                job.title = detectedBase;
-              }
-            }
-          } catch (e) {}
         }
 
         this.notifyDownloadComplete(job);
@@ -813,7 +882,7 @@ export class DownloadEngine {
         }
       } else {
         job.status = 'Failed';
-        job.error = 'Download interrupted';
+        job.error = lastErrorLine || 'Download interrupted';
         this.cleanupTempFiles(job);
         setTimeout(() => this.cleanupTempFiles(job), 800);
       }

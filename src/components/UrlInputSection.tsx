@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Video, Music, Folder, Download, Search, AlertCircle, CheckCircle2, 
   Film, Pencil, Check, Scissors, Gauge, Subtitles 
@@ -41,6 +41,7 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
   const t = translations[language];
 
   const [url, setUrl] = useState('');
+  const urlInputRef = useRef<HTMLInputElement>(null);
   const [isFetching, setIsFetching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
@@ -142,9 +143,10 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
   const handleFetchInfo = () => fetchInfoForUrl(url);
 
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setUrl(e.target.value);
+    const nextUrl = e.target.value;
+    setUrl(nextUrl);
     setErrorMessage(null);
-    if (videoInfo && videoInfo.url !== e.target.value.trim()) {
+    if (videoInfo) {
       setVideoInfo(null);
       setCustomTitle('');
       setIsEditingTitle(false);
@@ -255,11 +257,23 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
           <div className="flex space-x-2">
             <div className="relative flex-1">
               <input
+                ref={urlInputRef}
                 type="text"
                 value={url}
                 onChange={handleUrlChange}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (isFetching || isSubmitting || !url.trim()) return;
+                    if (!videoInfo) {
+                      handleFetchInfo();
+                    } else {
+                      handleSubmit(e as unknown as React.FormEvent);
+                    }
+                  }
+                }}
                 placeholder={t.urlPlaceholder}
-                className="w-full h-10 px-3 pr-10 text-sm bg-[var(--color-bg)] border-2 border-[var(--color-border)] rounded-md outline-none focus:ring-1 focus:ring-[var(--color-accent)] text-[var(--color-text-main)] placeholder:text-[var(--color-text-muted)]"
+                className="w-full h-10 px-3 pr-10 text-sm select-text bg-[var(--color-bg)] border-2 border-[var(--color-border)] rounded-md outline-none focus:ring-1 focus:ring-[var(--color-accent)] text-[var(--color-text-main)] placeholder:text-[var(--color-text-muted)]"
               />
             </div>
             <button
@@ -334,7 +348,7 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
                       }}
                       placeholder={videoInfo.title}
                       autoFocus
-                      className="flex-1 h-8 px-2.5 text-xs font-bold bg-[var(--color-surface)] border-2 border-[var(--color-accent)] rounded outline-none text-[var(--color-text-main)]"
+                      className="flex-1 h-8 px-2.5 text-xs font-bold select-text bg-[var(--color-surface)] border-2 border-[var(--color-accent)] rounded outline-none text-[var(--color-text-main)]"
                     />
                     <button
                       type="button"

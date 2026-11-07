@@ -971,7 +971,7 @@ ipcMain.handle('start-download', (_, jobData: any) => {
   const config = storage.getConfig();
   const job: DownloadJob = {
     id: `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-    url: jobData.url,
+    url: downloader.stripRadioMixParams(downloader.normalizeUrl(jobData.url)),
     title: jobData.title,
     thumbnail: jobData.thumbnail,
     mediaType: jobData.mediaType,
@@ -1224,7 +1224,7 @@ ipcMain.handle('execute-radial-action', async (_, actionKey: string) => {
           : actionKey === 'actDownloadVideo720p' ? '720p'
           : (cfg.defaultVideoResolution || '1080p');
 
-        if (targetUrl.includes('list=')) {
+        if (downloader.isPlaylistUrl(targetUrl)) {
           downloader.getPlaylistInfo(targetUrl).then((plInfo) => {
             if (plInfo && plInfo.items && plInfo.items.length > 0) {
               for (const item of plInfo.items) {
@@ -1276,7 +1276,7 @@ ipcMain.handle('execute-radial-action', async (_, actionKey: string) => {
       }
 
       if (downloader.isPotentialVideoUrl(targetUrl)) {
-        if (targetUrl.includes('list=')) {
+        if (downloader.isPlaylistUrl(targetUrl)) {
           downloader.getPlaylistInfo(targetUrl).then((plInfo) => {
             if (plInfo && plInfo.items && plInfo.items.length > 0) {
               for (const item of plInfo.items) {
