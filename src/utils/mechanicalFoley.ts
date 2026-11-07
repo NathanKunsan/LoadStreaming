@@ -326,82 +326,122 @@ class MechanicalFoleyEngine {
     src.start();
   }
 
-  // 1. CRT TV Video Cartridge Insert
+  // 1. CRT TV Video Cartridge Insert (Pure Broadband Acoustic Plastic/Metal Foley — Zero Tonal Synth!)
   public playCartridgeInsert() {
-    this.playCached('cartridge_insert', (ctx) => {
+    this.playCached('cartridge_insert_v2', (ctx) => {
       const sr = ctx.sampleRate;
-      const len = Math.floor(sr * 1.05);
+      const len = Math.floor(sr * 0.52);
       const L = new Float32Array(len);
       const R = new Float32Array(len);
+      const rng = createRng(1101);
 
-      // Plastic cartridge nose pushing open spring-hinged dust flap
-      addModalImpact(
-        L, R, sr, 0.005, 0.52,
-        [
-          { freq: 310, decay: 0.018, gain: 0.45 },
-          { freq: 890, decay: 0.012, gain: 0.35 },
-          { freq: 2450, decay: 0.006, gain: 0.28 }
-        ],
-        2100, 1.4, -0.08, 7, 0.25, 101
-      );
+      const addBroadbandKnock = (
+        timeSec: number,
+        amp: number,
+        bodyHz: number,
+        shellHz: number,
+        snapHz: number,
+        durMs: number,
+        pan = 0
+      ) => {
+        const sIdx = Math.max(0, Math.floor(timeSec * sr));
+        const bLen = Math.min(len - sIdx, Math.floor((durMs / 1000) * sr * 4));
+        if (bLen <= 0) return;
 
-      // Cartridge sliding along molded guide rails
-      addSlidingFriction(L, R, sr, 0.04, 0.26, 0.34, 900, 1550, 0, 102);
+        const raw = new Float32Array(bLen);
+        const tau = (durMs / 1000) * sr;
+        for (let i = 0; i < bLen; i++) {
+          // Asymmetric crisp physical pressure spike + fast exponential decay
+          const spike = i < 18 ? (1 - i / 18) * 1.4 : 0;
+          raw[i] = (rng() * Math.exp(-i / tau) + spike * rng() * 0.5);
+        }
 
-      // Motorized carriage loading pull-in & elevator drop
-      addDcMotorMechanism(L, R, sr, 0.24, 0.48, 0.26, 178, 152, 103);
+        const lowBody = biquadFilter(raw, sr, 'lowpass', bodyHz, 0.9);
+        const midShell = biquadFilter(raw, sr, 'bandpass', shellHz, 1.35);
+        const highSnap = biquadFilter(raw, sr, 'bandpass', snapHz, 1.75);
 
-      // Heavy steel solenoid lock + carriage seating onto chassis posts
-      addModalImpact(
-        L, R, sr, 0.71, 0.78,
-        [
-          { freq: 118, decay: 0.036, gain: 0.62 },
-          { freq: 420, decay: 0.022, gain: 0.44 },
-          { freq: 1380, decay: 0.011, gain: 0.32 },
-          { freq: 3900, decay: 0.004, gain: 0.24 }
-        ],
-        1850, 1.8, 0.05, 9, 0.32, 104
-      );
+        const lG = Math.cos(((pan + 1) * Math.PI) / 4);
+        const rG = Math.sin(((pan + 1) * Math.PI) / 4);
+        for (let i = 0; i < bLen; i++) {
+          const v = (lowBody[i] * 0.65 + midShell[i] * 0.85 + highSnap[i] * 0.72) * amp;
+          L[sIdx + i] += v * lG;
+          R[sIdx + i] += v * rG;
+        }
+      };
 
-      return finalizeBufferWithMicroRoom(ctx, L, R, 0.16);
+      // Stage 1 (0.008s): Plastic cartridge shell lip pushing open hinged slot flap
+      addBroadbandKnock(0.008, 0.58, 180, 740, 2900, 3.2, -0.06);
+      addBroadbandKnock(0.017, 0.22, 210, 920, 3400, 1.8, -0.04);
+
+      // Stage 2 (0.030s - 0.215s): Textured ABS plastic rails sliding along metal slot guides
+      addSlidingFriction(L, R, sr, 0.03, 0.185, 0.36, 980, 1680, 0, 1102);
+
+      // Stage 3 (0.185s - 0.255s): Edge connector pins scrubbing snugly into 60-pin socket
+      addSlidingFriction(L, R, sr, 0.185, 0.075, 0.42, 2400, 3600, 0.03, 1103);
+
+      // Stage 4 (0.262s): Firm mechanical seat + steel latch catch CLACK-THUD (with realistic 8ms micro-rebound)
+      addBroadbandKnock(0.262, 0.92, 135, 620, 3150, 4.8, 0.04);
+      addBroadbandKnock(0.271, 0.34, 160, 840, 4100, 2.2, 0.02);
+
+      return finalizeBufferWithMicroRoom(ctx, L, R, 0.12);
     }, 0.88);
   }
 
-  // 2. CRT TV Video Cartridge Eject
+  // 2. CRT TV Video Cartridge Eject (Pure Spring-Latch Release & Hollow Plastic Pop-Out — Zero Tonal Synth!)
   public playCartridgeEject() {
-    this.playCached('cartridge_eject', (ctx) => {
+    this.playCached('cartridge_eject_v2', (ctx) => {
       const sr = ctx.sampleRate;
-      const len = Math.floor(sr * 0.88);
+      const len = Math.floor(sr * 0.46);
       const L = new Float32Array(len);
       const R = new Float32Array(len);
+      const rng = createRng(1201);
 
-      // Eject button press + solenoid release snap
-      addModalImpact(
-        L, R, sr, 0.004, 0.56,
-        [
-          { freq: 520, decay: 0.014, gain: 0.4 },
-          { freq: 1920, decay: 0.008, gain: 0.42 },
-          { freq: 4400, decay: 0.004, gain: 0.26 }
-        ],
-        3100, 1.1, 0.12, 5, 0.22, 201
-      );
+      const addBroadbandKnock = (
+        timeSec: number,
+        amp: number,
+        bodyHz: number,
+        shellHz: number,
+        snapHz: number,
+        durMs: number,
+        pan = 0
+      ) => {
+        const sIdx = Math.max(0, Math.floor(timeSec * sr));
+        const bLen = Math.min(len - sIdx, Math.floor((durMs / 1000) * sr * 4));
+        if (bLen <= 0) return;
 
-      // Reverse carriage lift motor
-      addDcMotorMechanism(L, R, sr, 0.055, 0.42, 0.25, 155, 186, 202);
+        const raw = new Float32Array(bLen);
+        const tau = (durMs / 1000) * sr;
+        for (let i = 0; i < bLen; i++) {
+          const spike = i < 16 ? (1 - i / 16) * 1.35 : 0;
+          raw[i] = (rng() * Math.exp(-i / tau) + spike * rng() * 0.45);
+        }
 
-      // Spring-loaded cartridge pop-out against stop + dust flap snap shut
-      addSlidingFriction(L, R, sr, 0.44, 0.15, 0.36, 1600, 1050, 0, 203);
-      addModalImpact(
-        L, R, sr, 0.52, 0.68,
-        [
-          { freq: 275, decay: 0.026, gain: 0.52 },
-          { freq: 760, decay: 0.018, gain: 0.44 },
-          { freq: 2680, decay: 0.007, gain: 0.3 }
-        ],
-        2300, 1.5, -0.05, 11, 0.34, 204
-      );
+        const lowBody = biquadFilter(raw, sr, 'lowpass', bodyHz, 0.95);
+        const midShell = biquadFilter(raw, sr, 'bandpass', shellHz, 1.4);
+        const highSnap = biquadFilter(raw, sr, 'bandpass', snapHz, 1.85);
 
-      return finalizeBufferWithMicroRoom(ctx, L, R, 0.16);
+        const lG = Math.cos(((pan + 1) * Math.PI) / 4);
+        const rG = Math.sin(((pan + 1) * Math.PI) / 4);
+        for (let i = 0; i < bLen; i++) {
+          const v = (lowBody[i] * 0.58 + midShell[i] * 0.88 + highSnap[i] * 0.76) * amp;
+          L[sIdx + i] += v * lG;
+          R[sIdx + i] += v * rG;
+        }
+      };
+
+      // Stage 1 (0.005s): Mechanical Eject button lever press & steel latch hook unclipping
+      addBroadbandKnock(0.005, 0.65, 220, 1150, 3850, 2.5, 0.08);
+      addBroadbandKnock(0.032, 0.48, 175, 890, 4400, 2.1, 0.05);
+
+      // Stage 2 (0.042s - 0.175s): Connector unseating & brisk spring-loaded slide up the rails
+      addSlidingFriction(L, R, sr, 0.042, 0.135, 0.4, 2100, 1180, 0, 1202);
+
+      // Stage 3 (0.178s): Hollow plastic cartridge hitting upper bezel stop + dust flap snap
+      addBroadbandKnock(0.178, 0.84, 165, 790, 2750, 4.2, -0.04);
+      addBroadbandKnock(0.191, 0.36, 195, 960, 3300, 2.4, -0.02);
+      addBroadbandKnock(0.245, 0.24, 240, 1280, 3900, 1.8, 0);
+
+      return finalizeBufferWithMicroRoom(ctx, L, R, 0.12);
     }, 0.86);
   }
 
@@ -987,6 +1027,53 @@ class MechanicalFoleyEngine {
 
       return finalizeBufferWithMicroRoom(ctx, L, R, 0.22);
     }, 0.9);
+  }
+
+  // 20. 3.5mm TRS Stereo Headphone Jack Plug-In Click-Snap
+  public playHeadphonePlugIn() {
+    this.playCached('headphone_plug_in', (ctx) => {
+      const sr = ctx.sampleRate;
+      const len = Math.floor(sr * 0.22);
+      const L = new Float32Array(len);
+      const R = new Float32Array(len);
+
+      // Brass tip sliding past spring contacts + crisp TRS ring detent snap
+      addSlidingFriction(L, R, sr, 0.005, 0.055, 0.24, 1800, 2900, 0.12, 2101);
+      addModalImpact(
+        L, R, sr, 0.058, 0.62,
+        [
+          { freq: 340, decay: 0.008, gain: 0.42 },
+          { freq: 1950, decay: 0.004, gain: 0.48 },
+          { freq: 4950, decay: 0.0018, gain: 0.36 }
+        ],
+        3800, 0.85, 0.1, 4.5, 0.26, 2102
+      );
+
+      return finalizeBufferWithMicroRoom(ctx, L, R, 0.08);
+    }, 0.8);
+  }
+
+  // 21. Subtle Elastic Rubber Headphone Cord Twang Release
+  public playCordTwang(stretchRatio = 0.5) {
+    const clamped = Math.max(0.2, Math.min(1, stretchRatio));
+    this.playCached('cord_twang', (ctx) => {
+      const sr = ctx.sampleRate;
+      const len = Math.floor(sr * 0.16);
+      const L = new Float32Array(len);
+      const R = new Float32Array(len);
+
+      addSlidingFriction(L, R, sr, 0.002, 0.065, 0.26, 750, 1450, 0.08, 2201);
+      addModalImpact(
+        L, R, sr, 0.004, 0.34,
+        [
+          { freq: 145, decay: 0.018, gain: 0.45 },
+          { freq: 520, decay: 0.007, gain: 0.3 }
+        ],
+        920, 1.1, 0.08, 0, 0, 2202
+      );
+
+      return finalizeBufferWithMicroRoom(ctx, L, R, 0.06);
+    }, 0.42 * clamped, 0.9 + clamped * 0.25);
   }
 }
 

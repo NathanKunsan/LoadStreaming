@@ -49,6 +49,7 @@ export const electronAPI = {
 
   // Built-in Retro Media Player
   scanMediaLibrary: (): Promise<MediaLibraryItem[]> => ipcRenderer.invoke('scan-media-library'),
+  extractMediaThumbnail: (filePath: string): Promise<string> => ipcRenderer.invoke('extract-media-thumbnail', filePath),
   checkMediaFileExists: (filePath: string): Promise<boolean> => ipcRenderer.invoke('check-media-file-exists', filePath),
   removeMediaHistoryItem: (data: { id?: string; filePath?: string }): Promise<HistoryItem[]> => ipcRenderer.invoke('remove-media-history-item', data),
   getMixtapes: (): Promise<Mixtape[]> => ipcRenderer.invoke('get-mixtapes'),

@@ -115,6 +115,7 @@ export interface Mixtape {
   id: string;
   name: string;
   color: MixtapeShellColor;
+  customImage?: string;
   trackPaths: string[];
   createdAt: number;
 }

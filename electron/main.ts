@@ -1,7 +1,8 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage, clipboard, globalShortcut, session, screen, protocol } from 'electron';
 import path from 'path';
 import fs from 'fs';
-import { execFile } from 'child_process';
+import crypto from 'crypto';
+import { execFile, spawn } from 'child_process';
 import { DownloadEngine } from './downloader';
 import { ConversionEngine } from './converter';
 import { StorageManager } from './storage';
@@ -691,6 +692,21 @@ app.whenReady().then(() => {
         '.webp': 'image/webp'
       };
       const contentType = mimeMap[ext] || 'application/octet-stream';
+
+      // Direct buffer response for local images so thumbnails load instantaneously
+      if (contentType.startsWith('image/')) {
+        const imgBuf = fs.readFileSync(filePath);
+        return new Response(imgBuf, {
+          status: 200,
+          headers: {
+            'Content-Type': contentType,
+            'Content-Length': String(imgBuf.byteLength),
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'no-cache'
+          }
+        });
+      }
+
       const rangeHeader = request.headers.get('range') || request.headers.get('Range');
 
       if (rangeHeader && totalSize > 0) {
@@ -1405,7 +1421,119 @@ function collectDiskMediaFiles(dirPath: string, depth = 0): string[] {
   return results;
 }
 
-ipcMain.handle('scan-media-library', (): MediaLibraryItem[] => {
+function getBundledFfmpegPath(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'bin', 'ffmpeg.exe');
+  }
+  return path.join(__dirname, '..', 'resources', 'bin', 'ffmpeg.exe');
+}
+
+function getThumbCacheDir(): string {
+  const dir = path.join(app.getPath('userData'), 'media-thumbs');
+  try {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  } catch {}
+  return dir;
+}
+
+function runFfmpegThumbArgs(ffmpegExe: string, args: string[], outPath: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    try {
+      const child = spawn(ffmpegExe, args, { windowsHide: true });
+      const timer = setTimeout(() => {
+        try { child.kill(); } catch {}
+        resolve(false);
+      }, 4000);
+
+      child.on('close', () => {
+        clearTimeout(timer);
+        try {
+          resolve(fs.existsSync(outPath) && fs.statSync(outPath).size > 128);
+        } catch {
+          resolve(false);
+        }
+      });
+      child.on('error', () => {
+        clearTimeout(timer);
+        resolve(false);
+      });
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+async function extractOrGetCachedThumbnail(filePath: string): Promise<string> {
+  try {
+    if (!filePath || !fs.existsSync(filePath)) return '';
+    const stat = fs.statSync(filePath);
+    if (!stat.isFile()) return '';
+
+    const norm = path.normalize(filePath).toLowerCase();
+    const hash = crypto.createHash('sha256').update(`${norm}|${stat.size}`).digest('hex').slice(0, 24);
+    const outPath = path.join(getThumbCacheDir(), `${hash}.jpg`);
+
+    if (fs.existsSync(outPath) && fs.statSync(outPath).size > 128) {
+      return `local-media://media/stream?path=${encodeURIComponent(outPath)}`;
+    }
+
+    // Check adjacent image cover first
+    const ext = path.extname(filePath).toLowerCase();
+    const baseTitle = path.basename(filePath, ext);
+    for (const imgExt of ['.jpg', '.jpeg', '.png', '.webp']) {
+      const candidate = path.join(path.dirname(filePath), baseTitle + imgExt);
+      if (fs.existsSync(candidate) && fs.statSync(candidate).size > 128) {
+        return `local-media://media/stream?path=${encodeURIComponent(candidate)}`;
+      }
+    }
+
+    const ffmpegExe = getBundledFfmpegPath();
+    if (!fs.existsSync(ffmpegExe)) return '';
+
+    if (ext === '.mp3') {
+      // Extract embedded ID3v2 APIC cover art stream
+      const ok = await runFfmpegThumbArgs(
+        ffmpegExe,
+        ['-y', '-v', 'error', '-i', filePath, '-an', '-frames:v', '1', '-q:v', '2', '-vf', 'scale=480:-1', outPath],
+        outPath
+      );
+      if (ok) {
+        return `local-media://media/stream?path=${encodeURIComponent(outPath)}`;
+      }
+      return '';
+    }
+
+    if (ext === '.mp4') {
+      // Try 2.5s into video for a clear non-black frame, fallback to 0s for very short clips
+      let ok = await runFfmpegThumbArgs(
+        ffmpegExe,
+        ['-y', '-v', 'error', '-ss', '00:00:02.500', '-i', filePath, '-frames:v', '1', '-q:v', '3', '-vf', 'scale=480:-1', outPath],
+        outPath
+      );
+      if (!ok) {
+        ok = await runFfmpegThumbArgs(
+          ffmpegExe,
+          ['-y', '-v', 'error', '-ss', '00:00:00', '-i', filePath, '-frames:v', '1', '-q:v', '3', '-vf', 'scale=480:-1', outPath],
+          outPath
+        );
+      }
+      if (ok) {
+        return `local-media://media/stream?path=${encodeURIComponent(outPath)}`;
+      }
+    }
+    return '';
+  } catch {
+    return '';
+  }
+}
+
+ipcMain.handle('extract-media-thumbnail', async (_, filePath: string): Promise<string> => {
+  return await extractOrGetCachedThumbnail(filePath);
+});
+
+ipcMain.handle('scan-media-library', async (): Promise<MediaLibraryItem[]> => {
   const cfg = storage.getConfig();
   const history = storage.getHistory();
   const seenPaths = new Set<string>();
@@ -1423,8 +1551,10 @@ ipcMain.handle('scan-media-library', (): MediaLibraryItem[] => {
     if (seenPaths.has(norm)) continue;
     seenPaths.add(norm);
 
+    const uniqueHash = crypto.createHash('sha256').update(norm).digest('hex').slice(0, 20);
+
     items.push({
-      id: h.id,
+      id: h.id || `hist_${uniqueHash}`,
       title: h.title || path.basename(h.filePath, path.extname(h.filePath)),
       thumbnail: h.thumbnail || '',
       mediaType: isMp4 ? 'video' : 'audio',
@@ -1446,7 +1576,6 @@ ipcMain.handle('scan-media-library', (): MediaLibraryItem[] => {
   const discoveredFiles: string[] = [];
   for (const rootDir of scanRoots) {
     if (rootDir === cfg.outputDir) {
-      // Top-level only for outputDir itself to avoid re-walking Video/Audio
       try {
         if (fs.existsSync(rootDir)) {
           for (const entry of fs.readdirSync(rootDir, { withFileTypes: true })) {
@@ -1473,20 +1602,12 @@ ipcMain.handle('scan-media-library', (): MediaLibraryItem[] => {
       const stat = fs.statSync(filePath);
       const ext = path.extname(filePath).toLowerCase();
       const baseTitle = path.basename(filePath, ext);
-      // Check if an adjacent image cover exists
-      let localThumb = '';
-      for (const imgExt of ['.jpg', '.jpeg', '.png', '.webp']) {
-        const candidate = path.join(path.dirname(filePath), baseTitle + imgExt);
-        if (fs.existsSync(candidate)) {
-          localThumb = `local-media://media/stream?path=${encodeURIComponent(candidate)}`;
-          break;
-        }
-      }
+      const uniqueHash = crypto.createHash('sha256').update(norm).digest('hex').slice(0, 20);
 
       items.push({
-        id: `disk_${ Buffer.from(norm).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 20) }`,
+        id: `disk_${uniqueHash}`,
         title: baseTitle,
-        thumbnail: localThumb,
+        thumbnail: '',
         mediaType: ext === '.mp4' ? 'video' : 'audio',
         resolution: ext === '.mp4' ? 'MP4' : undefined,
         filePath,
@@ -1495,6 +1616,23 @@ ipcMain.handle('scan-media-library', (): MediaLibraryItem[] => {
       });
     } catch {}
   }
+
+  // 3. Populate local cached thumbnails (with 4-worker concurrency) so every existing MP3 cover & MP4 frame loads reliably offline & online
+  const CONCURRENCY = 4;
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(CONCURRENCY, items.length) }, async () => {
+    while (cursor < items.length) {
+      const idx = cursor++;
+      const item = items[idx];
+      if (fs.existsSync(item.filePath)) {
+        const localThumb = await extractOrGetCachedThumbnail(item.filePath);
+        if (localThumb) {
+          item.thumbnail = localThumb;
+        }
+      }
+    }
+  });
+  await Promise.all(workers);
 
   return items;
 });

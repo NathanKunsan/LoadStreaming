@@ -101,10 +101,10 @@ export const MediaPlayerSection: React.FC<MediaPlayerSectionProps> = ({
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="h-full min-h-0 flex flex-col gap-2.5">
       {/* Top Category Selector Bar (4 Separate Standalone Player Categories) + Hardware SFX Switch */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 flex-1">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 shrink-0">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-1">
           {categories.map((cat) => {
             const selected = category === cat.id;
             return (
@@ -112,7 +112,7 @@ export const MediaPlayerSection: React.FC<MediaPlayerSectionProps> = ({
                 key={cat.id}
                 type="button"
                 onClick={() => handleSelectCategory(cat.id)}
-                className={`p-2.5 text-left border-2 border-black dark:border-white rounded-xl sketch-btn transition-all cursor-pointer flex items-center gap-2.5 relative ${
+                className={`px-2.5 py-2 text-left border-2 border-black dark:border-white rounded-xl sketch-btn transition-all cursor-pointer flex items-center gap-2 relative ${
                   selected
                     ? 'bg-[var(--color-accent)] text-[var(--color-bg)] shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] -translate-y-0.5'
                     : 'bg-[var(--color-surface)] text-[var(--color-text-main)] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:border-[var(--color-accent)]'
@@ -124,11 +124,7 @@ export const MediaPlayerSection: React.FC<MediaPlayerSectionProps> = ({
                   <div className="text-[10px] opacity-80 truncate">{cat.subtitle}</div>
                 </div>
                 {cat.isRunning && (
-                  <span
-                    className={`w-2 h-2 rounded-full shrink-0 animate-pulse ${
-                      selected ? 'bg-black' : 'bg-emerald-400'
-                    }`}
-                  />
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-emerald-500 border border-black/50" />
                 )}
               </button>
             );
@@ -140,7 +136,7 @@ export const MediaPlayerSection: React.FC<MediaPlayerSectionProps> = ({
           <button
             type="button"
             onClick={onToggleSfxMute}
-            className={`px-3 py-2 text-xs font-bold border-2 border-black dark:border-white rounded-xl sketch-btn shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 text-xs font-bold border-2 border-black dark:border-white rounded-xl sketch-btn shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1.5 cursor-pointer ${
               sfxMuted
                 ? 'bg-[var(--color-bg)] text-[var(--color-text-muted)]'
                 : 'bg-[var(--color-surface)] text-[var(--color-text-main)]'
@@ -154,7 +150,7 @@ export const MediaPlayerSection: React.FC<MediaPlayerSectionProps> = ({
           <button
             type="button"
             onClick={handleRescan}
-            className="p-2 text-xs font-bold bg-[var(--color-surface)] text-[var(--color-text-main)] border-2 border-black dark:border-white rounded-xl sketch-btn shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
+            className="p-1.5 text-xs font-bold bg-[var(--color-surface)] text-[var(--color-text-main)] border-2 border-black dark:border-white rounded-xl sketch-btn shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
             title={t.playerRescanBtn}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -163,22 +159,24 @@ export const MediaPlayerSection: React.FC<MediaPlayerSectionProps> = ({
       </div>
 
       {/* Standalone Hardware Machine Viewport */}
-      {category === 'tv' && (
-        <CrtTvPlayer
-          language={language}
-          initialLaunchItem={launchItem}
-          onConsumedLaunch={() => setLaunchItem(null)}
-        />
-      )}
-      {category === 'turntable' && (
-        <TurntablePlayer
-          language={language}
-          initialLaunchItem={launchItem}
-          onConsumedLaunch={() => setLaunchItem(null)}
-        />
-      )}
-      {category === 'cassette' && <CassetteDeckPlayer language={language} />}
-      {category === 'portable' && <PortableWheelPlayer language={language} />}
+      <div className="flex-1 min-h-0">
+        {category === 'tv' && (
+          <CrtTvPlayer
+            language={language}
+            initialLaunchItem={launchItem}
+            onConsumedLaunch={() => setLaunchItem(null)}
+          />
+        )}
+        {category === 'turntable' && (
+          <TurntablePlayer
+            language={language}
+            initialLaunchItem={launchItem}
+            onConsumedLaunch={() => setLaunchItem(null)}
+          />
+        )}
+        {category === 'cassette' && <CassetteDeckPlayer language={language} />}
+        {category === 'portable' && <PortableWheelPlayer language={language} />}
+      </div>
     </div>
   );
 };

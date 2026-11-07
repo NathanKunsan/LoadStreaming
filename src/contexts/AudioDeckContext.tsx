@@ -78,6 +78,7 @@ export const AudioDeckProvider: React.FC<{
   const [duration, setDuration] = useState<number>(0);
   const [volume, setVolumeState] = useState<number>(0.85);
   const [playbackRate, setPlaybackRateState] = useState<number>(1.0);
+  const playbackRateRef = useRef<number>(1.0);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off');
   const [vinylWarmth, setVinylWarmth] = useState<boolean>(true);
   const [pendingLaunch, setPendingLaunch] = useState<{ category: PlayerCategory; item: MediaLibraryItem } | null>(null);
@@ -203,7 +204,9 @@ export const AudioDeckProvider: React.FC<{
       const mediaUrl = toLocalMediaUrl(track.filePath);
       audioEl.src = mediaUrl;
       audioEl.volume = volume;
-      audioEl.playbackRate = playbackRate;
+      const targetRate = playbackRateRef.current;
+      audioEl.defaultPlaybackRate = targetRate;
+      audioEl.playbackRate = targetRate;
       audioEl.currentTime = 0;
       setCurrentTime(0);
       setDuration(0);
@@ -249,8 +252,15 @@ export const AudioDeckProvider: React.FC<{
       setQueue(tracks);
       setCurrentIndex(clampedIdx);
       if (machine !== 'turntable') {
+        playbackRateRef.current = 1.0;
         setPlaybackRateState(1.0);
-        if (audioRef.current) audioRef.current.playbackRate = 1.0;
+        if (audioRef.current) {
+          audioRef.current.defaultPlaybackRate = 1.0;
+          audioRef.current.playbackRate = 1.0;
+          (audioRef.current as HTMLAudioElement & { preservesPitch?: boolean }).preservesPitch = true;
+        }
+      } else if (audioRef.current) {
+        (audioRef.current as HTMLAudioElement & { preservesPitch?: boolean }).preservesPitch = false;
       }
       await loadTrackIntoElement(target, autoPlay);
       return true;
@@ -361,13 +371,32 @@ export const AudioDeckProvider: React.FC<{
     }
   }, []);
 
-  const setPlaybackRate = useCallback((rate: number) => {
-    const c = Math.max(0.75, Math.min(1.35, rate));
-    setPlaybackRateState(c);
-    if (audioRef.current) {
-      audioRef.current.playbackRate = c;
-    }
-  }, []);
+  const setPlaybackRate = useCallback(
+    (rate: number) => {
+      const c = Math.max(0.5, Math.min(2.0, rate));
+      playbackRateRef.current = c;
+      setPlaybackRateState(c);
+      if (audioRef.current) {
+        (audioRef.current as HTMLAudioElement & { preservesPitch?: boolean }).preservesPitch =
+          activeMachine !== 'turntable';
+        audioRef.current.defaultPlaybackRate = c;
+        audioRef.current.playbackRate = c;
+      }
+    },
+    [activeMachine]
+  );
+
+  // Enforce playbackRate & vinyl pitch mode across source changes and play state transitions
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    const effectiveRate = activeMachine === 'turntable' ? playbackRate : 1.0;
+    playbackRateRef.current = effectiveRate;
+    (el as HTMLAudioElement & { preservesPitch?: boolean }).preservesPitch =
+      activeMachine !== 'turntable';
+    el.defaultPlaybackRate = effectiveRate;
+    el.playbackRate = effectiveRate;
+  }, [playbackRate, activeMachine, currentTrack, isPlaying]);
 
   const getVuLevels = useCallback((): { left: number; right: number } => {
     if (!isPlaying || !analyserRef.current || !freqDataRef.current) {
@@ -456,9 +485,20 @@ export const AudioDeckProvider: React.FC<{
         onLoadedMetadata={(e) => {
           setDuration(e.currentTarget.duration || 0);
           e.currentTarget.volume = volume;
-          e.currentTarget.playbackRate = playbackRate;
+          const r = playbackRateRef.current;
+          (e.currentTarget as HTMLAudioElement & { preservesPitch?: boolean }).preservesPitch =
+            activeMachine !== 'turntable';
+          e.currentTarget.defaultPlaybackRate = r;
+          e.currentTarget.playbackRate = r;
         }}
-        onPlay={() => setIsPlaying(true)}
+        onPlay={(e) => {
+          const r = playbackRateRef.current;
+          (e.currentTarget as HTMLAudioElement & { preservesPitch?: boolean }).preservesPitch =
+            activeMachine !== 'turntable';
+          e.currentTarget.defaultPlaybackRate = r;
+          e.currentTarget.playbackRate = r;
+          setIsPlaying(true);
+        }}
         onPause={() => setIsPlaying(false)}
         onEnded={() => {
           if (repeatMode === 'one' && audioRef.current) {
